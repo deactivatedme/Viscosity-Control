@@ -4,7 +4,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 export type ViewKind =
-  | 'overview' | 'servers' | 'server' | 'agents' | 'agent' | 'workflows' | 'projects' | 'deployments'
+  | 'overview' | 'servers' | 'server' | 'agents' | 'agent' | 'workflows' | 'projects' | 'project' | 'deployments' | 'deployment'
   | 'browsers' | 'browser' | 'terminals' | 'terminal' | 'containers' | 'files' | 'activity' | 'settings';
 export interface TabData { kind: ViewKind; id?: string }
 export interface Selection { kind: 'server' | 'agent' | 'browser' | 'file' | 'container' | 'process'; id: string; serverId?: string; data?: unknown }
@@ -14,6 +14,9 @@ interface UiState {
   selection: Selection | null;
   terminal: { fontSize: number; fontFamily: string };
   filesServerId: string | null;
+  /** Directory the Files view should open next (consumed once by the view). */
+  filesPath: string | null;
+  setFilesPath: (p: string | null) => void;
   /** One-shot request for a view to do something on arrival, e.g. 'add-server' or 'new-agent'. */
   intent: string | null;
   setIntent: (i: string | null) => void;
@@ -31,6 +34,8 @@ export const useUi = create<UiState>()(
       selection: null,
       terminal: { fontSize: 13, fontFamily: 'Geist Mono' },
       filesServerId: null,
+      filesPath: null,
+      setFilesPath: (filesPath) => set({ filesPath }),
       intent: null,
       setIntent: (intent) => set({ intent }),
       setModel: (model) => set({ model }),

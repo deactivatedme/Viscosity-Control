@@ -72,7 +72,8 @@ export const serverConnections = pgTable('server_connections', {
 /** Provider/API secrets. `secretEnc` is AES-256-GCM; plaintext never leaves the API except to a worker at run start. */
 export const credentials = pgTable('credentials', {
   id: id(),
-  kind: text('kind', { enum: ['anthropic', 'openai', 'github'] }).notNull(),
+  /** `secret` = a generic value (e.g. a site password) referenced from browser steps as {{secret:<label>}}. */
+  kind: text('kind', { enum: ['anthropic', 'openai', 'github', 'secret'] }).notNull(),
   label: text('label').notNull(),
   secretEnc: text('secret_enc').notNull(),
   hint: text('hint').notNull(),
@@ -151,7 +152,7 @@ export const browserEvents = pgTable('browser_events', {
 /** Approval gates raised by agents and browser sessions. The worker is the source of truth for resolution. */
 export const approvals = pgTable('approvals', {
   id: id(),
-  kind: text('kind', { enum: ['agent', 'browser'] }).notNull(),
+  kind: text('kind', { enum: ['agent', 'browser', 'workflow'] }).notNull(),
   sessionId: uuid('session_id').notNull(),
   serverId: uuid('server_id').notNull().references(() => servers.id, { onDelete: 'cascade' }),
   approvalId: text('approval_id').notNull(),
@@ -211,6 +212,8 @@ export const workflows = pgTable('workflows', {
   kind: text('kind', { enum: ['agent', 'browser'] }).notNull(),
   serverId: uuid('server_id').notNull().references(() => servers.id, { onDelete: 'cascade' }),
   config: jsonb('config').notNull().$type<Record<string, unknown>>(),
+  /** Multi-step definition (see services/workflows.ts). Null = single step described by kind/config. */
+  steps: jsonb('steps').$type<unknown[]>(),
   /** 5-field cron expression; null = manual runs only. */
   schedule: text('schedule'),
   timezone: text('timezone').notNull().default('UTC'),
@@ -226,8 +229,78 @@ export const workflowRuns = pgTable('workflow_runs', {
   workflowId: uuid('workflow_id').notNull().references(() => workflows.id, { onDelete: 'cascade' }),
   trigger: text('trigger', { enum: ['schedule', 'manual'] }).notNull(),
   /** started = a session was created (its own status is the outcome); skipped/failed never produced one. */
-  status: text('status', { enum: ['started', 'skipped', 'failed'] }).notNull(),
+  status: text('status', { enum: ['started', 'skipped', 'failed', 'running', 'waiting_approval', 'succeeded', 'cancelled'] }).notNull(),
   sessionId: uuid('session_id'),
   detail: text('detail'),
+  /** Per-step progress of a multi-step run; this is the checkpoint the engine resumes from after a restart. */
+  state: jsonb('state').$type<Record<string, unknown>>(),
   startedAt: ts('started_at').notNull().defaultNow(),
+  finishedAt: ts('finished_at'),
 }, (t) => [index('workflow_runs_workflow_idx').on(t.workflowId, t.startedAt)]);
+
+/** A source tree on a server, usually a clone of a GitHub repository. */
+export const projects = pgTable('projects', {
+  id: id(),
+  name: text('name').notNull(),
+  serverId: uuid('server_id').notNull().references(() => servers.id, { onDelete: 'cascade' }),
+  path: text('path').notNull(),
+  /** "owner/name" on GitHub, when known. */
+  repoFullName: text('repo_full_name'),
+  cloneUrl: text('clone_url'),
+  defaultBranch: text('default_branch'),
+  credentialId: uuid('credential_id').references(() => credentials.id, { onDelete: 'set null' }),
+  createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: createdAt(),
+}, (t) => [uniqueIndex('projects_server_path_idx').on(t.serverId, t.path)]);
+
+/** A Docker Compose application running on a server. */
+export const deployments = pgTable('deployments', {
+  id: id(),
+  name: text('name').notNull(),
+  serverId: uuid('server_id').notNull().references(() => servers.id, { onDelete: 'cascade' }),
+  projectId: uuid('project_id').references(() => projects.id, { onDelete: 'set null' }),
+  /** Directory containing the compose file (inside the worker's allowed roots). */
+  workdir: text('workdir').notNull(),
+  composeFile: text('compose_file').notNull().default('docker-compose.yml'),
+  environment: text('environment', { enum: ['staging', 'production'] }).notNull().default('staging'),
+  /** AES-GCM encrypted JSON object of environment variables / secrets passed to compose. */
+  envEnc: text('env_enc'),
+  /** Optional command run before `compose up` (e.g. a build), as argv. */
+  buildCommand: jsonb('build_command').$type<string[]>(),
+  healthUrl: text('health_url'),
+  status: text('status', { enum: ['idle', 'pending_approval', 'deploying', 'healthy', 'unhealthy', 'failed'] }).notNull().default('idle'),
+  currentReleaseId: uuid('current_release_id'),
+  createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: createdAt(),
+}, (t) => [index('deployments_server_idx').on(t.serverId)]);
+
+/** Deployment history: one row per deploy or rollback attempt. */
+export const deploymentReleases = pgTable('deployment_releases', {
+  id: id(),
+  deploymentId: uuid('deployment_id').notNull().references(() => deployments.id, { onDelete: 'cascade' }),
+  /** Git commit deployed (or to deploy), when the workdir is a repository. */
+  version: text('version'),
+  trigger: text('trigger', { enum: ['manual', 'rollback', 'agent'] }).notNull(),
+  status: text('status', { enum: ['pending_approval', 'running', 'succeeded', 'failed', 'rejected'] }).notNull(),
+  /** The supervised command session whose events are this release's log. */
+  sessionId: uuid('session_id'),
+  health: jsonb('health'),
+  detail: text('detail'),
+  requestedBy: uuid('requested_by').references(() => users.id, { onDelete: 'set null' }),
+  approvedBy: uuid('approved_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: createdAt(),
+  finishedAt: ts('finished_at'),
+}, (t) => [index('deployment_releases_deployment_idx').on(t.deploymentId, t.createdAt)]);
+
+/** One metrics sample per server per minute, kept 14 days, for charts beyond the live window. */
+export const metricSamples = pgTable('metric_samples', {
+  serverId: uuid('server_id').notNull().references(() => servers.id, { onDelete: 'cascade' }),
+  ts: ts('ts').notNull(),
+  cpu: real('cpu').notNull(),
+  memUsed: real('mem_used').notNull(),
+  memTotal: real('mem_total').notNull(),
+  diskUsed: real('disk_used').notNull(),
+  diskTotal: real('disk_total').notNull(),
+  netRxBps: real('net_rx_bps').notNull(),
+  netTxBps: real('net_tx_bps').notNull(),
+}, (t) => [primaryKey({ columns: [t.serverId, t.ts] })]);

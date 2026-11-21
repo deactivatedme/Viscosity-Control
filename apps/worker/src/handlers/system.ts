@@ -49,6 +49,7 @@ export async function systemInfo(ctx: Ctx): Promise<SystemInfo> {
     user: os.userInfo().username,
     workerVersion: WORKER_VERSION,
     roots: ctx.config.roots,
+    services: ctx.config.services ?? [],
     capabilities: {
       pty: pty && (process.getuid?.() !== 0 || ctx.config.allowRootShell === true),
       docker,

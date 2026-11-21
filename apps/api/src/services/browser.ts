@@ -1,4 +1,4 @@
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { BrowserEventEnvelope } from '@viscosity/protocol';
@@ -32,9 +32,18 @@ export function browserService(ctx: Ctx) {
       llm = { apiKey: box.decrypt(cred.secretEnc), model: row.model ?? 'claude-opus-5-5' };
     }
     try {
+      // Stored secrets are referenced as {{secret:label}} and resolved only here, so the plaintext
+      // is never kept in the session row; the worker is told not to echo the value.
+      const steps = await Promise.all(((row.steps as { action?: string; value?: string }[] | null) ?? []).map(async (step) => {
+        const m = step.action === 'fill' ? /^\{\{secret:(.+)\}\}$/.exec(step.value ?? '') : null;
+        if (!m) return step;
+        const [cred] = await db.select().from(schema.credentials).where(and(eq(schema.credentials.kind, 'secret'), eq(schema.credentials.label, m[1]!)));
+        if (!cred) throw new HttpError(400, `no stored secret named "${m[1]}" (add it in Settings → AI providers & secrets)`);
+        return { ...step, value: box.decrypt(cred.secretEnc), secret: true };
+      }));
       await hub.call(row.serverId, 'browser.start', {
         sessionId: row.id, mode: row.mode, startUrl: row.startUrl ?? undefined, task: row.task ?? undefined,
-        steps: (row.steps as never) ?? undefined, llm,
+        steps: steps.length ? (steps as never) : undefined, llm,
       });
     } catch (err) {
       if (isOffline(err)) {

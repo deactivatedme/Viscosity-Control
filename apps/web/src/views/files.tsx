@@ -32,6 +32,14 @@ function Explorer({ server }: { server: Server }) {
   const [cwd, setCwd] = useState(root);
   const [query, setQuery] = useState('');
   const [searchFor, setSearchFor] = useState('');
+  // A project or agent can ask the explorer to open at a specific directory (once).
+  const wanted = useUi((s) => s.filesPath);
+  useEffect(() => {
+    if (!wanted) return;
+    const base = roots.find((r) => wanted === r || wanted.startsWith(`${r}/`));
+    if (base) { setRoot(base); setCwd(wanted); }
+    useUi.getState().setFilesPath(null);
+  }, [wanted]); // eslint-disable-line react-hooks/exhaustive-deps
   const [openPath, setOpenPath] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const [pending, setPending] = useState<(() => void) | null>(null); // action waiting on "discard changes?"

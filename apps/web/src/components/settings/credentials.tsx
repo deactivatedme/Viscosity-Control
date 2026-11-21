@@ -16,7 +16,8 @@ import { Card } from './card';
 const KINDS: Record<Credential['kind'], { label: string; used: string; placeholder: string }> = {
   anthropic: { label: 'Anthropic', used: 'Claude agents and autonomous browser sessions', placeholder: 'sk-ant-…' },
   openai: { label: 'OpenAI', used: 'Codex agents', placeholder: 'sk-…' },
-  github: { label: 'GitHub', used: 'Passed to agents as GITHUB_TOKEN', placeholder: 'ghp_… or github_pat_…' },
+  github: { label: 'GitHub', used: 'Repository access for Projects; passed to agents as GITHUB_TOKEN', placeholder: 'ghp_… or github_pat_…' },
+  secret: { label: 'Secret', used: 'Any value (e.g. a site password); use it in browser steps as {{secret:label}}', placeholder: 'value' },
 };
 
 export function CredentialsCard() {

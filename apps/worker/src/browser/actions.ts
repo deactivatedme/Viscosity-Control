@@ -3,6 +3,8 @@ import type { BrowserStep } from '@viscosity/protocol';
 import { errMessage } from '../log';
 import type { NetworkGuard } from './guard';
 
+/** Resolves a path inside the worker's allowed roots, or throws. */
+export type PathGuard = (path: string) => Promise<string>;
 export type Action = Exclude<BrowserStep, { action: 'approval' } | { action: 'screenshot' }>;
 
 export interface ActionOutcome {
@@ -27,7 +29,7 @@ async function settle(page: Page): Promise<string> {
   return `now at ${page.url()} — "${await page.title()}"${timedOut ? ' (page still loading after 10s)' : ''}`;
 }
 
-async function run(page: Page, action: Action, check: NetworkGuard): Promise<Omit<ActionOutcome, 'ok' | 'detail' | 'changed'>> {
+async function run(page: Page, action: Action, check: NetworkGuard, guardPath: PathGuard): Promise<Omit<ActionOutcome, 'ok' | 'detail' | 'changed'>> {
   switch (action.action) {
     case 'goto': {
       const reason = await check(action.url);
@@ -54,6 +56,15 @@ async function run(page: Page, action: Action, check: NetworkGuard): Promise<Omi
       if (actual !== action.value) return { error: `read-back mismatch: field holds ${actual.length} chars, expected ${action.value.length}` };
       return { verified: `field value read back and matches (${actual.length} chars)` };
     }
+    case 'upload': {
+      // Only files inside the worker's allowed roots may leave the machine through a browser.
+      const file = await guardPath(action.path);
+      const input = page.locator(action.selector).first();
+      await input.setInputFiles(file);
+      const names = await input.evaluate((el) => Array.from((el as HTMLInputElement).files ?? []).map((f) => f.name));
+      if (names.length !== 1) return { error: 'the file input did not accept the file' };
+      return { verified: `input now holds "${names[0]}"` };
+    }
     case 'press':
       await page.keyboard.press(action.key);
       return { verified: await settle(page) };
@@ -74,17 +85,18 @@ const DETAIL: { [K in Action['action']]: (a: Extract<Action, { action: K }>) => 
   goto: (a) => a.url,
   click: (a) => a.selector,
   fill: (a) => `${a.selector} (${a.value.length} chars)`,
+  upload: (a) => `${a.selector} ← ${a.path}`,
   press: (a) => a.key,
   waitFor: (a) => a.selector,
   extract: (a) => (a.attribute ? `${a.selector} @${a.attribute}` : a.selector),
 };
 
 /** Performs one browser action and reports what was verified afterwards. Never throws for action failures. */
-export async function perform(page: Page, action: Action, check: NetworkGuard): Promise<ActionOutcome> {
+export async function perform(page: Page, action: Action, check: NetworkGuard, guardPath: PathGuard): Promise<ActionOutcome> {
   const detail = (DETAIL[action.action] as (a: Action) => string)(action);
   const changed = action.action !== 'extract' && action.action !== 'waitFor';
   try {
-    const result = await run(page, action, check);
+    const result = await run(page, action, check, guardPath);
     return { ok: !result.error, detail, changed, ...result };
   } catch (err) {
     return { ok: false, detail, changed, error: errMessage(err).split('\n')[0]! };

@@ -6,6 +6,7 @@ import { assertSecureUrl, type WorkerConfig } from './config';
 import { Connection } from './connection';
 import type { Ctx, Handlers } from './context';
 import { dockerHandlers } from './handlers/docker';
+import { extraHandlers } from './handlers/extra';
 import { fsHandlers } from './handlers/fs';
 import { gitHandlers } from './handlers/git';
 import { processHandlers } from './handlers/process';
@@ -39,6 +40,7 @@ export async function startWorker(config: WorkerConfig): Promise<Worker> {
     ...processHandlers,
     ...fsHandlers(ctx),
     ...dockerHandlers,
+    ...extraHandlers(ctx),
     ...gitHandlers(ctx),
     ...ptys.handlers,
     ...agents.handlers,

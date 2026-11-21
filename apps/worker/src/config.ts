@@ -15,6 +15,8 @@ const WorkerConfigSchema = z.object({
   metricsIntervalMs: z.number().int().min(500).optional(),
   allowRootShell: z.boolean().optional(),
   allowReboot: z.boolean().optional(),
+  /** systemd units the dashboard may start/stop/restart (e.g. ["nginx.service"]). Host-side setting only. */
+  services: z.array(z.string().regex(/^[\w@.:-]+$/)).optional(),
   /** Permit a plain http:// control URL on a non-loopback host. */
   insecure: z.boolean().optional(),
   browser: z

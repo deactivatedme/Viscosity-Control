@@ -5,7 +5,7 @@ import { audit, HttpError, type Ctx } from '../context';
 import { schema } from '../db';
 
 const Id = z.object({ id: z.string().uuid() });
-const Kind = z.enum(['anthropic', 'openai', 'github']);
+const Kind = z.enum(['anthropic', 'openai', 'github', 'secret']);
 
 export function miscRoutes(app: FastifyInstance, ctx: Ctx) {
   const { db, box, dash } = ctx;
@@ -17,7 +17,7 @@ export function miscRoutes(app: FastifyInstance, ctx: Ctx) {
   app.get('/api/credentials', async () => (await db.select().from(C).orderBy(C.createdAt)).map(credView));
 
   app.post('/api/credentials', { config: { role: 'admin' } }, async (req) => {
-    const body = z.object({ kind: Kind, label: z.string().trim().min(1).max(80), secret: z.string().trim().min(8).max(4096) }).parse(req.body);
+    const body = z.object({ kind: Kind, label: z.string().trim().min(1).max(80), secret: z.string().trim().min(1).max(4096) }).parse(req.body);
     const [row] = await db.insert(C).values({ kind: body.kind, label: body.label, secretEnc: box.encrypt(body.secret), hint: hint(body.secret), createdBy: req.user!.id }).returning();
     await audit(ctx, req, 'credential.create', `${body.kind}:${body.label}`);
     return credView(row!);

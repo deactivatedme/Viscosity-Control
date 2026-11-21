@@ -26,7 +26,7 @@ export const NAV: { kind: ViewKind; label: string; icon: LucideIcon; keys: strin
 
 export const ICONS: Record<ViewKind, LucideIcon> = {
   ...(Object.fromEntries(NAV.map((n) => [n.kind, n.icon])) as Record<ViewKind, LucideIcon>),
-  server: Server, agent: Bot, browser: Globe, terminal: SquareTerminal,
+  server: Server, agent: Bot, browser: Globe, terminal: SquareTerminal, project: FolderGit2, deployment: Rocket,
 };
 
 /** Every view is a default export taking an optional entity id, loaded on demand. */
@@ -37,8 +37,10 @@ export const VIEWS: Record<ViewKind, ComponentType<{ id?: string }>> = {
   agents: lazy(() => import('./agents')),
   agent: lazy(() => import('./agent-workspace')),
   workflows: lazy(() => import('./workflows')),
-  projects: lazy(() => import('./planned')),
-  deployments: lazy(() => import('./planned')),
+  projects: lazy(() => import('./projects')),
+  project: lazy(() => import('./project')),
+  deployments: lazy(() => import('./deployments')),
+  deployment: lazy(() => import('./deployment')),
   browsers: lazy(() => import('./browsers')),
   browser: lazy(() => import('./browser-session')),
   terminals: lazy(() => import('./terminals')),

@@ -15,6 +15,13 @@
       "when": 1795288133980,
       "tag": "0001_fluffy_landau",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795289898680,
+      "tag": "0002_old_stick",
+      "breakpoints": true
     }
   ]
 }

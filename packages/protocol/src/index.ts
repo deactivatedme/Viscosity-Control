@@ -24,6 +24,8 @@ export const SystemInfo = z.object({
   workerVersion: z.string(),
   /** Directories the worker allows file/agent/terminal access to. */
   roots: z.array(z.string()),
+  /** systemd units this worker is allowed to control (from its own config). */
+  services: z.array(z.string()).default([]),
   capabilities: z.object({
     pty: z.boolean(),
     docker: z.boolean(),
@@ -102,6 +104,19 @@ export const GitStatus = z.object({
   files: z.array(z.object({ path: z.string(), status: z.string() })),
 });
 export type GitStatus = z.infer<typeof GitStatus>;
+
+export const GitBranch = z.object({ name: z.string(), current: z.boolean(), remote: z.boolean(), sha: z.string() });
+export type GitBranch = z.infer<typeof GitBranch>;
+export const GitCommit = z.object({ sha: z.string(), author: z.string(), date: z.string(), subject: z.string() });
+export type GitCommit = z.infer<typeof GitCommit>;
+export const GitWorktree = z.object({ path: z.string(), branch: z.string().nullable(), sha: z.string() });
+export type GitWorktree = z.infer<typeof GitWorktree>;
+
+export const ServiceUnit = z.object({ name: z.string(), description: z.string(), active: z.string(), sub: z.string() });
+export type ServiceUnit = z.infer<typeof ServiceUnit>;
+
+export const HttpCheck = z.object({ ok: z.boolean(), status: z.number().nullable(), ms: z.number(), error: z.string().optional() });
+export type HttpCheck = z.infer<typeof HttpCheck>;
 
 // ───────────────────────── agents ─────────────────────────
 
@@ -201,7 +216,10 @@ export type AgentStartParams = z.infer<typeof AgentStartParams>;
 export const BrowserStep = z.discriminatedUnion('action', [
   z.object({ action: z.literal('goto'), url: z.string().url() }),
   z.object({ action: z.literal('click'), selector: z.string() }),
-  z.object({ action: z.literal('fill'), selector: z.string(), value: z.string() }),
+  /** `secret: true` keeps the value out of events and logs (used for stored site credentials). */
+  z.object({ action: z.literal('fill'), selector: z.string(), value: z.string(), secret: z.boolean().optional() }),
+  /** Attach a file from inside the worker's allowed roots to a file input. */
+  z.object({ action: z.literal('upload'), selector: z.string(), path: z.string() }),
   z.object({ action: z.literal('press'), key: z.string() }),
   z.object({ action: z.literal('waitFor'), selector: z.string() }),
   z.object({ action: z.literal('extract'), selector: z.string(), attribute: z.string().optional() }),
@@ -336,6 +354,25 @@ export const methods = {
 
   'git.status': { params: cwd, result: GitStatus },
   'git.diff': { params: z.object({ cwd: z.string(), path: z.string().optional() }), result: z.object({ diff: z.string(), truncated: z.boolean() }) },
+
+  /** `token` is passed per invocation as an HTTP header; it is never written to .git/config or the remote URL. */
+  'git.clone': { params: z.object({ url: z.string().url(), dest: z.string(), branch: z.string().regex(/^[\w./@-]+$/).max(200).optional(), token: z.string().optional() }), result: ok },
+  'git.branches': { params: cwd, result: z.array(GitBranch) },
+  'git.log': { params: z.object({ cwd: z.string(), limit: z.number().int().positive().max(200).default(30), ref: z.string().regex(/^[\w./@-]+$/).max(200).optional() }), result: z.array(GitCommit) },
+  'git.checkout': { params: z.object({ cwd: z.string(), ref: z.string().regex(/^[\w./@-]+$/).max(200), create: z.boolean().default(false) }), result: ok },
+  'git.commit': { params: z.object({ cwd: z.string(), message: z.string().min(1).max(5000) }), result: z.object({ sha: z.string() }) },
+  'git.push': { params: z.object({ cwd: z.string(), branch: z.string().regex(/^[\w./@-]+$/).max(200), token: z.string().optional() }), result: ok },
+  'git.pull': { params: z.object({ cwd: z.string(), token: z.string().optional() }), result: ok },
+  'git.worktrees': { params: cwd, result: z.array(GitWorktree) },
+  'git.worktreeAdd': { params: z.object({ cwd: z.string(), branch: z.string().regex(/^[\w./@-]+$/).max(200) }), result: z.object({ path: z.string() }) },
+  'git.worktreeRemove': { params: z.object({ cwd: z.string(), path: z.string() }), result: ok },
+
+  /** Health probe made from the server itself (so it can reach services bound to localhost). */
+  'http.check': { params: z.object({ url: z.string().url(), timeoutMs: z.number().int().positive().max(60_000).default(10_000) }), result: HttpCheck },
+
+  /** Only units listed under `services` in the worker's own config can be listed or controlled. */
+  'service.list': { params: empty, result: z.array(ServiceUnit) },
+  'service.action': { params: z.object({ name: z.string().regex(/^[\w@.:-]+$/), action: z.enum(['start', 'stop', 'restart']) }), result: ok },
 
   'agent.start': { params: AgentStartParams, result: ok },
   'agent.stop': { params: z.object({ sessionId: z.string().uuid() }), result: ok },

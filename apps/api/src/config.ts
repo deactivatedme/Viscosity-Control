@@ -8,6 +8,8 @@ const Env = z.object({
   PUBLIC_ORIGIN: z.string().min(1),
   /** URL workers use to reach the control plane, if different from the first PUBLIC_ORIGIN (e.g. a tailnet address). */
   WORKER_URL: z.string().url().optional(),
+  /** GitHub REST base URL (override for GitHub Enterprise or tests). */
+  GITHUB_API_URL: z.string().url().default('https://api.github.com'),
   PORT: z.coerce.number().default(4000),
   HOST: z.string().default('127.0.0.1'),
   DATA_DIR: z.string().default('./data'),
@@ -29,6 +31,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env) {
     publicUrl: origins[0]!,
     workerUrl: (e.WORKER_URL ?? origins[0]!).replace(/\/$/, ''),
     cookieSecure: origins[0]!.startsWith('https://'),
+    githubApiUrl: e.GITHUB_API_URL.replace(/\/$/, ''),
     port: e.PORT,
     host: e.HOST,
     dataDir: e.DATA_DIR,

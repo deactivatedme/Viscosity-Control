@@ -20,7 +20,8 @@ interface Row { action: Action; a: string; b: string }
 const ACTIONS: Record<Action, { label: string; a?: string; b?: string; aPlaceholder?: string; bPlaceholder?: string }> = {
   goto: { label: 'Go to URL', a: 'URL', aPlaceholder: 'https://example.com' },
   click: { label: 'Click', a: 'Selector', aPlaceholder: 'button[type=submit]' },
-  fill: { label: 'Fill', a: 'Selector', b: 'Value', aPlaceholder: '#email', bPlaceholder: 'text to type' },
+  fill: { label: 'Fill', a: 'Selector', b: 'Value', aPlaceholder: '#email', bPlaceholder: 'text, or {{secret:label}} for a stored secret' },
+  upload: { label: 'Upload file', a: 'File input selector', b: 'File path on the server', aPlaceholder: 'input[type=file]', bPlaceholder: '/var/lib/viscosity/workspaces/report.pdf' },
   press: { label: 'Press key', a: 'Key', aPlaceholder: 'Enter' },
   waitFor: { label: 'Wait for', a: 'Selector', aPlaceholder: '.result' },
   extract: { label: 'Extract', a: 'Selector', b: 'Attribute (optional)', aPlaceholder: 'h1', bPlaceholder: 'text content if empty' },
@@ -32,7 +33,9 @@ function toSteps(rows: Row[]): unknown[] {
   return rows.map(({ action, a, b }) => {
     switch (action) {
       case 'goto': return { action, url: a.trim() };
-      case 'fill': return { action, selector: a, value: b };
+      // a {{secret:label}} value is resolved by the control plane at launch and never echoed back
+      case 'fill': return /^\{\{secret:.+\}\}$/.test(b.trim()) ? { action, selector: a, value: b.trim(), secret: true } : { action, selector: a, value: b };
+      case 'upload': return { action, selector: a, path: b.trim() };
       case 'press': return { action, key: a.trim() };
       case 'extract': return b.trim() ? { action, selector: a, attribute: b.trim() } : { action, selector: a };
       case 'screenshot': return { action };
@@ -46,6 +49,7 @@ function toRows(steps: BrowserStep[]): Row[] {
     switch (s.action) {
       case 'goto': return { action: s.action, a: s.url, b: '' };
       case 'fill': return { action: s.action, a: s.selector, b: s.value };
+      case 'upload': return { action: s.action, a: s.selector, b: s.path };
       case 'press': return { action: s.action, a: s.key, b: '' };
       case 'extract': return { action: s.action, a: s.selector, b: s.attribute ?? '' };
       case 'screenshot': return { action: s.action, a: '', b: '' };

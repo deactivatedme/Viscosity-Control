@@ -23,6 +23,8 @@ export interface BrowserRun {
   page(): Page;
   signal: AbortSignal;
   check: NetworkGuard;
+  /** Confines uploads to the worker's allowed roots. */
+  guardPath(path: string): Promise<string>;
   emit(event: BrowserEvent): void;
   /** Emits the action event and, when the page may have changed, a screenshot. */
   reportAction(action: string, outcome: ActionOutcome): Promise<void>;
@@ -40,7 +42,7 @@ async function runSteps(run: BrowserRun, params: BrowserStartParams): Promise<Ru
     } else if (step.action === 'screenshot') {
       await run.screenshot();
     } else {
-      const outcome = await perform(run.page(), step, run.check);
+      const outcome = await perform(run.page(), step, run.check, run.guardPath);
       await run.reportAction(step.action, outcome);
       if (!outcome.ok) return { ok: false, summary: `Step ${i + 1} (${step.action} ${outcome.detail}) failed: ${outcome.error}`, data: { extracted } };
       if (step.action === 'extract') extracted.push({ selector: step.selector, values: outcome.data ?? [] });
@@ -122,6 +124,7 @@ export function createBrowserManager(ctx: Ctx): BrowserManager {
       const session: BrowserRun = {
         page: () => page,
         signal: run.signal,
+        guardPath: ctx.guard,
         // Navigations refused up front are reported on the timeline just like blocked sub-requests.
         check: async (url) => {
           const reason = await check(url);

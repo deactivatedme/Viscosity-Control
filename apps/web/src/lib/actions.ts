@@ -18,19 +18,20 @@ export async function newTerminal(server: Pick<Server, 'id' | 'name'>, cwd?: str
   }
 }
 
-export function openFiles(serverId: string) {
+export function openFiles(serverId: string, path?: string) {
   useUi.getState().setFilesServer(serverId);
+  if (path) useUi.getState().setFilesPath(path);
   openTab({ kind: 'files' }, 'Files');
 }
 
 /** Open a section and ask it to start an action (e.g. show its "new" dialog). */
-export function openWithIntent(kind: 'servers' | 'agents' | 'browsers', title: string, intent: string) {
+export function openWithIntent(kind: 'servers' | 'agents' | 'browsers' | 'projects' | 'deployments', title: string, intent: string) {
   useUi.getState().setIntent(intent);
   openTab({ kind }, title);
 }
 
 /** Resolve "agent:<id>" / "server:<id>" / "browser:<id>" links carried by alerts. */
 export function openLink(link: string | null, title: string) {
-  const m = /^(agent|server|browser):(.+)$/.exec(link ?? '');
-  if (m) openTab({ kind: m[1] as 'agent' | 'server' | 'browser', id: m[2] }, title);
+  const m = /^(agent|server|browser|project|deployment):(.+)$/.exec(link ?? '');
+  if (m) openTab({ kind: m[1] as 'agent' | 'server' | 'browser' | 'project' | 'deployment', id: m[2] }, title);
 }

@@ -10,7 +10,7 @@ export interface AgentInput {
   serverId: string; name?: string; provider: Row['provider']; model?: string; cwd: string; permissionMode: Row['permissionMode'];
   worktreeBranch?: string; credentialId?: string; command?: string[]; prompt: string;
 }
-const CRED_ENV = { anthropic: 'ANTHROPIC_API_KEY', openai: 'OPENAI_API_KEY', github: 'GITHUB_TOKEN' } as const;
+const CRED_ENV: Record<string, string | undefined> = { anthropic: 'ANTHROPIC_API_KEY', openai: 'OPENAI_API_KEY', github: 'GITHUB_TOKEN' };
 
 export function agentService(ctx: Ctx) {
   const { db, hub, dash, box } = ctx;
@@ -26,7 +26,8 @@ export function agentService(ctx: Ctx) {
     const env: Record<string, string> = {};
     if (row.credentialId) {
       const [cred] = await db.select().from(schema.credentials).where(eq(schema.credentials.id, row.credentialId));
-      if (cred) env[CRED_ENV[cred.kind]] = box.decrypt(cred.secretEnc);
+      const name = cred && CRED_ENV[cred.kind];
+      if (cred && name) env[name] = box.decrypt(cred.secretEnc);
     }
     await db.update(A).set({ task: prompt, statusDetail: null }).where(eq(A.id, row.id));
     try {

@@ -78,7 +78,7 @@ export async function runLlm(run: BrowserRun, params: BrowserStartParams): Promi
   ];
 
   const act = async (action: Action): Promise<string> => {
-    const outcome: ActionOutcome = await perform(run.page(), action, run.check);
+    const outcome: ActionOutcome = await perform(run.page(), action, run.check, run.guardPath);
     await run.reportAction(action.action, outcome);
     const head = outcome.ok ? `OK — ${outcome.verified}` : `FAILED — ${outcome.error}`;
     return `${head}\n\n${await observe(run.page())}`;

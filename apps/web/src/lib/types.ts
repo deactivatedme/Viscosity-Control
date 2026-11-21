@@ -36,7 +36,7 @@ export interface BrowserSession {
 }
 
 export interface Terminal { id: string; serverId: string; title: string; shell: string | null; runAs: string | null; status: 'open' | 'closed'; exitCode: number | null; createdAt: string }
-export interface Credential { id: string; kind: 'anthropic' | 'openai' | 'github'; label: string; hint: string; createdAt: string; rotatedAt: string | null }
+export interface Credential { id: string; kind: 'anthropic' | 'openai' | 'github' | 'secret'; label: string; hint: string; createdAt: string; rotatedAt: string | null }
 export interface Alert { id: string; level: 'info' | 'warning' | 'error'; title: string; body: string | null; link: string | null; serverId: string | null; readAt: string | null; createdAt: string }
 export interface AuditEntry { id: number; ts: string; action: string; target: string | null; serverId: string | null; detail: unknown; ip: string | null; user: string | null }
 
