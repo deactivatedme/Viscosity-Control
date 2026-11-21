@@ -24,7 +24,8 @@ const Env = z.object({
 });
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env) {
-  const e = Env.parse(env);
+  // Compose passes unset optional variables as empty strings; treat those as absent.
+  const e = Env.parse(Object.fromEntries(Object.entries(env).filter(([, v]) => v !== '')));
   const origins = e.PUBLIC_ORIGIN.split(',').map((o) => o.trim().replace(/\/$/, ''));
   return {
     databaseUrl: e.DATABASE_URL,

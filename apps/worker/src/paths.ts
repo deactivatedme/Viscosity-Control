@@ -29,6 +29,9 @@ export function createPathGuard(roots: string[]): PathGuard {
         current = await realpath(current);
         break;
       } catch (err) {
+        // The worker's account may not even be allowed to traverse the path (e.g. /root as a
+        // service user): that is a refusal, not an internal failure.
+        if (code(err) === 'EACCES' || code(err) === 'EPERM') throw new RpcError('forbidden', `permission denied: ${path}`);
         if (code(err) !== 'ENOENT' && code(err) !== 'ENOTDIR') throw new RpcError('failed', (err as Error).message);
         // A dangling symlink "does not exist" for realpath but a write would follow it.
         const link = await lstat(current).catch(() => null);

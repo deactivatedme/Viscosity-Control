@@ -1,53 +1,58 @@
-# Roadmap and validation status
+# Status and validation
 
-Legend: **Verified** = exercised for real in this repository's test runs (how is stated) · **Built, unverified** = implemented against the documented interface but not run against the real dependency here · **Not built**.
+Legend: **Verified** = exercised for real (how is stated) · **Built, unverified** = implemented against the documented interface but never run against the real dependency · **Not built**.
 
-## Test results at the time of writing
+## How it is tested
 
-| Suite | Command | Result |
+| Suite | Command | What it uses |
 | --- | --- | --- |
-| Type checking (4 packages, strict) | `pnpm typecheck` | clean |
-| Unit + integration | `pnpm test` | 56 passed, 1 skipped (the opt-in live Claude test) |
-| UI end-to-end on a production build | `pnpm test:e2e` | 8/8 steps passed |
-| Live Claude agent through the stack | `VISCOSITY_LIVE_CLAUDE=1 pnpm exec vitest run apps/api/test/live-claude.test.ts` | passed; also run once from the dashboard UI (approval → edit → follow-up) |
+| Type checking (strict, 4 packages) | `pnpm typecheck` | — |
+| Unit + integration | `pnpm test` | real Postgres, a real in-process worker, real Chromium, real git, and real Docker for the deployment suite |
+| UI end-to-end | `pnpm test:e2e` | throwaway database, production build of the dashboard, a real worker enrolled with the token shown in the UI |
+| Deployment path | CI job `deploy-assets` | builds the Docker images, starts the Compose stack behind Caddy with TLS, runs `deploy/install-worker.sh` on an Ubuntu runner with systemd |
+| Live Claude agent | `VISCOSITY_LIVE_CLAUDE=1 pnpm exec vitest run apps/api/test/live-claude.test.ts` | a real Claude Agent SDK run (spends tokens; opt-in) |
 
-Linting: ESLint is not configured — `typescript-eslint` does not yet support the TypeScript 7 compiler this repo uses, so strict `tsc` (unused locals/parameters, unchecked index access) is the gate for now.
+Current results are on the repository's Actions tab. Linting: ESLint is not configured — `typescript-eslint` does not yet support the TypeScript 7 compiler this repo uses, so strict `tsc` is the gate.
 
-## Milestone 1 — acceptance criteria
+## Feature status
 
-| Criterion | Status | Evidence |
+| Area | Status | Notes |
 | --- | --- | --- |
-| Authenticated dashboard | Verified | Integration tests (setup-once, login, MFA, CSRF/Origin, roles) + browser runs of the UI |
-| One real machine enrolled through a secure worker | Verified* | Real worker process enrolled with a single-use token and connected over the real protocol. *The machine was the development container, not a separate VPS; `deploy/install-worker.sh` (systemd, apt) has only been syntax-checked. |
-| Genuine machine metrics updating live | Verified | `/proc`-sourced metrics pushed every 2 s and rendered (CPU/memory/disk/network, processes) |
-| Functional remote terminal | Verified | Integration test (PTY echo, exit code, foreign-Origin refused) + UI run (type, resize, reload → scrollback replay, exit) |
-| Real Claude or Codex agent on the server | Verified (Claude) | `apps/api/test/live-claude.test.ts`: real Claude Agent SDK run — approval requested → approved → file written → completed → conversation resumed |
-| Agent output streaming into the dashboard | Verified | Live event topic → agent workspace (custom-process agents in the UI; Claude via the API test) |
-| Agent history persists after refresh | Verified | Events stored by `(session, seq)`; UI reload shows identical history |
-| Controlled Playwright browser task on a worker | Verified | Scripted session: goto → fill (read-back verified) → click → extract → screenshot |
-| Browser progress visible in the dashboard | Verified | Timeline + live screenshot frame, approvals allowed/denied from the UI |
-| Correct handling of worker disconnection | Verified | Offline within one heartbeat; RPCs fail with `offline`; events produced during an outage are replayed with no gaps; vanished sessions are marked `lost`; queued sessions start on reconnect |
-| Enforced authorization | Verified | Deny-by-default hook; viewer/operator/admin matrix in the integration suite |
-| Repeatable deployment instructions | Built, unverified | `docs/DEPLOYMENT.md`, Compose/Caddy/Dockerfiles. The API and worker production bundles build; **the Docker images were not built or run** (no Docker daemon in the build environment). |
+| Authentication, sessions, TOTP MFA | Verified | setup-once, login, CSRF/Origin, MFA cycle |
+| Roles and user management | Verified | viewer/operator/admin enforced server-side; add/edit/delete users, last admin protected |
+| Server enrollment, live metrics, reconnect | Verified | single-use token, `/proc` metrics, offline detection, event replay, lost-session detection, queued start |
+| Long-range metrics | Verified | one sample per minute kept 14 days; Live / 1h / 24h / 7d charts |
+| Terminals | Verified | PTY on the worker, scrollback replay, exit codes, foreign Origin refused |
+| File manager | Verified | browse, Monaco edit, upload/download, rename, delete, search; traversal blocked on the worker |
+| Processes, journald logs, reboot | Verified / unverified | process list + signals verified; journald and reboot need systemd (reboot is never exercised automatically) |
+| Managed systemd services | Verified in CI | units allow-listed in the worker's config; narrowly scoped polkit rule |
+| Docker containers | Verified | list, health, stats, logs, start/stop/restart against a real daemon |
+| Claude agents | Verified | real run: approval → edit → follow-up resume, from the API and from the dashboard |
+| Codex agents | **Built, unverified** | needs an OpenAI API key |
+| Custom-process agents, command runs | Verified | streaming, stop, restart, history |
+| Approvals, worktrees, git changes view | Verified | |
+| Browser sessions (scripted) | Verified | per-action verification, screenshots, approvals, uploads, stored secrets, SSRF guard |
+| Browser sessions (autonomous, LLM-driven) | **Built, unverified** | needs an Anthropic API key |
+| Projects and git | Verified | clone, branches, commits, diff, commit, worktrees, build/test runs |
+| GitHub integration | **Partly verified** | repository listing, push and pull-request creation are tested against a fake GitHub API and a local remote — not against github.com |
+| Deployments (Docker Compose) | Verified | deploy, env secrets, health checks, redeploy, rollback, production approval, teardown — against real Docker |
+| Workflows | Verified | cron schedules, multi-step runs with dependencies, parallel steps, retries, timeouts, approval gates, cancel, resume after restart, exactly-once step starts |
+| Control-plane deployment (Compose + Caddy) | Verified in CI | images build, stack starts, TLS endpoint answers |
+| Worker installer (systemd) | Verified in CI | on Ubuntu 24.04; Debian and the `--with-browser`, `--with-docker`, `--allow-reboot` options are not exercised |
 
-## By phase
+## Known limits (not hidden)
 
-| Phase | Built | Not yet |
-| --- | --- | --- |
-| 1 Foundation | Monorepo, schema + migrations, auth (scrypt, sessions, TOTP MFA, roles), design system, three-panel workspace with draggable/splittable tabs, command palette, notifications | User-management UI (single administrator ships) |
-| 2 Server connectivity | Single-use enrollment, worker service, real metrics, live status, reconnect + reconciliation, credential rotation/revocation | Long-range metrics storage (in-memory ~10 min ring today) |
-| 3 Remote operations | Terminals (xterm.js, PTY on the worker, scrollback replay), file manager (browse, edit in Monaco, upload/download, rename, delete, search), processes (list, signal), journald logs, reboot | Managed systemd service start/stop UI |
-| 3 Docker | List, inspect, logs, start/stop/restart, stats, compose grouping — **built, unverified** (only the "Docker unavailable" path could be run) | Compose project management |
-| 4 Coding agents | Adapter interface; Claude Agent SDK (verified live); Codex SDK (**built, unverified** — needs an OpenAI key); custom process; queue/start/stop/resume/restart/archive; approvals; git worktree isolation; changes/diff view; usage and cost | Pause (no provider supports it); mid-run messages; container sandbox per agent |
-| 5 Browser agents | Isolated Playwright sessions, network guard (SSRF), scripted steps with verification, screenshots, approvals; autonomous mode on the Anthropic Messages API (**built, unverified** — needs an API key) | File upload action; live video stream; stored site logins |
-| 6 Projects & deployments | — | **Not built**: GitHub connection, clone/branches/PRs, project workspaces, Docker/Compose deployments, health checks, rollback. The sidebar entries say so and contain no controls. |
-| 7 Automation | Durable scheduled workflows (cron in Postgres, at-most-once firing across replicas, catch-up after downtime, overlap skip, run history), queued sessions, alerts/notifications | Multi-step workflows with dependencies, retries with limits, checkpoints; BullMQ/Redis (deliberately not added — Postgres covers today's needs) |
-| 8 Hardening | Threat model, unit + integration + UI end-to-end suites, a self-review of every trust boundary in the threat model (not an independent audit) | CI wiring, load/performance testing, an external security review, the gaps listed in `THREAT-MODEL.md` |
+- **Agents are not container-sandboxed.** They are confined by an unprivileged account and the allowed directories. See `THREAT-MODEL.md`.
+- **No pause for agents.** Neither provider SDK supports it; the control is not shown.
+- **Deploys are not resumable.** A deploy in flight when the API restarts is marked failed, not continued.
+- **GitHub repository listing** returns the first 100 repositories by last push.
+- **Commits from the dashboard stage everything** (`git add -A`); there is no per-file staging.
+- **No Redis/BullMQ.** Queuing, scheduling and the workflow engine run on Postgres; this is deliberate, not missing.
+- **Single region, single API process assumed for live sockets.** The scheduler and workflow engine are replica-safe, but the worker hub keeps connections in one process's memory.
 
 ## To finish verification on your infrastructure
 
-1. **Deploy the control plane** with `deploy/docker-compose.yml` on a host with Docker and confirm the images build and Caddy issues a certificate.
-2. **Enroll a real Ubuntu/Debian VPS** with the dashboard's command and confirm the systemd unit, the unprivileged account, and (if used) `--with-docker`, `--with-browser`, `--allow-reboot`.
-3. **Docker management**: on a server with Docker, check list/stats/logs/start/stop against real containers.
-4. **Codex**: add an OpenAI key in Settings and run a Codex agent.
-5. **Autonomous browser**: add an Anthropic key and run an autonomous browser session, including an approval.
+1. Deploy with `deploy/docker-compose.yml` on a real host and domain (public certificate issuance is the one step CI cannot cover).
+2. Enroll a real VPS; try the optional installer flags you need.
+3. Add a real GitHub token and clone/push/open a pull request.
+4. Add an OpenAI key and run a Codex agent; add an Anthropic key and run an autonomous browser session.

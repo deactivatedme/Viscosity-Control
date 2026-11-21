@@ -9,6 +9,10 @@ dashboard (Next.js) ──▶ API (Fastify + Postgres) ◀── worker (one per
                                                         └─ browser sessions: Playwright
 ```
 
+**Platforms.** The dashboard is a web app — use it from any browser on Windows, macOS or Linux. The control plane runs on a Linux host with Docker; the worker runs on Ubuntu/Debian servers.
+
+**What it does.** Servers (metrics, processes, services, terminals, files, containers) · Agents (Claude Code, Codex, custom, with approvals and git worktrees) · Browser sessions (Playwright) · Projects (git + GitHub) · Deployments (Docker Compose with approvals and rollback) · Workflows (scheduled, multi-step) · Users and roles · Audit log.
+
 * **Real, not simulated.** Every number and every line of output comes from an enrolled machine. Unconfigured integrations show empty states, never demo data.
 * **Agents outlive the browser.** Sessions are supervised by the worker on the server; the dashboard only observes. Events are sequenced, persisted and replayed after any disconnect.
 * **Security is structural.** Deny-by-default routes with server-side roles, Origin-checked mutations and WebSockets, single-use enrollment, hashed credentials, encrypted provider keys, approval gates, path and network guards, a full audit trail. See [docs/THREAT-MODEL.md](docs/THREAT-MODEL.md).
@@ -20,7 +24,7 @@ dashboard (Next.js) ──▶ API (Fastify + Postgres) ◀── worker (one per
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Production deploy (Compose + Caddy), enrolling servers, local development |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Components, the worker protocol, liveness and reconciliation |
 | [docs/THREAT-MODEL.md](docs/THREAT-MODEL.md) | Trust boundaries, mitigations, and the gaps that are not closed yet |
-| [docs/ROADMAP.md](docs/ROADMAP.md) | What is built, **what was actually verified and how**, and what is next |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | Feature status: **what was actually verified and how**, and the known limits |
 
 ## Quick start (development)
 
@@ -43,7 +47,7 @@ pnpm --filter @viscosity/worker dev run --config ./data/worker.json
 
 ```
 packages/protocol   typed, versioned control-plane ⇄ worker contract (zod)
-apps/api            control plane: auth, RBAC, worker hub, persistence, scheduler
+apps/api            control plane: auth, RBAC, worker hub, persistence, scheduler, workflow engine, deployments
 apps/worker         remote worker: operations, agent + browser supervision
 apps/web            dashboard
 deploy/             Dockerfiles, docker-compose, Caddyfile, worker installer

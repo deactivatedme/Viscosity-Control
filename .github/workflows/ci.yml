@@ -72,7 +72,7 @@ jobs:
         run: |
           # Caddy issues a certificate from its own local CA for "localhost"; hand that CA to the installer,
           # the same way a private/internal PKI would be used in production.
-          docker compose -f deploy/docker-compose.yml cp caddy:/data/caddy/pki/authorities/local/root.crt caddy-root.crt
+          docker compose -f deploy/docker-compose.yml --env-file .env cp caddy:/data/caddy/pki/authorities/local/root.crt caddy-root.crt
           sudo bash deploy/install-worker.sh --url https://localhost --token "$TOKEN" --ca-cert "$PWD/caddy-root.crt" --service cron.service
 
       - name: The worker runs under systemd as an unprivileged account and is online
@@ -95,5 +95,6 @@ jobs:
       - name: Logs on failure
         if: failure()
         run: |
-          docker compose -f deploy/docker-compose.yml logs --tail 80 || true
+          docker compose -f deploy/docker-compose.yml --env-file .env ps -a || true
+          docker compose -f deploy/docker-compose.yml --env-file .env logs --tail 80 || true
           sudo journalctl -u viscosity-worker -n 80 --no-pager || true

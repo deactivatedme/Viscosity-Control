@@ -58,9 +58,10 @@
 | PTY + scrollback | worker (256 KB ring) | Terminal bytes never touch Postgres. |
 | Structured agent/browser events | Postgres | Queryable history that survives refresh. |
 | Screenshots | API `DATA_DIR` | Bulk binary; rows only reference them. |
-| Metrics history | API memory ring (~10 min) | Shortcut — add a time-series store for long-range charts. |
 | Provider keys | Postgres, AES-256-GCM | Decrypted only to hand to a worker at run start. |
-| Queue / scheduling | Postgres (`queued` status + reconnect start) | Redis/BullMQ deliberately not added yet: one fewer stateful service until scheduled workflows land. |
+| Queue / scheduling / workflow engine | Postgres | Cron slots are claimed with `FOR UPDATE SKIP LOCKED`; each workflow run's per-step state is its checkpoint, and step sessions get pre-assigned ids so a step can never start twice. Redis/BullMQ deliberately not added. |
+| Metrics history | Postgres, one sample/min, 14 days | Live charts use the in-memory ring; longer ranges are bucketed in SQL. |
+| Command runs (builds, deploys) | worker, as supervised sessions | Same event log, stop and history as agents; argv is executed exactly, never through a shell. |
 
 ## Adding a provider
 

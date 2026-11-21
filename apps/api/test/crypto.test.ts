@@ -54,3 +54,12 @@ describe('TOTP (RFC 6238 SHA-1 vectors, truncated to 6 digits)', () => {
     expect(verifyTotp(secret, '000000', now)).toBe(totp(secret, now) === '000000');
   });
 });
+
+describe('configuration', () => {
+  it('treats empty optional variables (as docker compose passes them) as unset', async () => {
+    const { loadConfig } = await import('../src/config');
+    const cfg = loadConfig({ DATABASE_URL: 'postgres://x/y', VISCOSITY_SECRET_KEY: 'k'.repeat(32), PUBLIC_ORIGIN: 'https://control.example', WORKER_URL: '', WORKER_BUNDLE: '' } as NodeJS.ProcessEnv);
+    expect(cfg.workerUrl).toBe('https://control.example');
+    expect(cfg.cookieSecure).toBe(true);
+  });
+});
