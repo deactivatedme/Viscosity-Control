@@ -14,14 +14,6 @@ const SESSION_TIMEOUT_MS = 30 * 60_000;
 const HEALTH_WAIT_MS = 30_000;
 const MONITOR_MS = 60_000;
 
-/**
- * The custom adapter appends the session prompt as the final argv. This fixed wrapper drops
- * that last argument and execs the rest unchanged, so `docker compose … up` runs exactly as
- * written. The command is still passed as separate arguments — nothing is interpolated into the script.
- */
-const DROP_LAST = 'i=0; n=$#; for a; do i=$((i+1)); shift; [ "$i" -lt "$n" ] && set -- "$@" "$a"; done; exec "$@"';
-const argv = (command: string[]) => ['sh', '-c', DROP_LAST, 'sh', ...command];
-
 /** Compose project name: stable for the life of the deployment, valid for `docker compose -p`. */
 export const composeProject = (d: Pick<Deployment, 'id' | 'name'>) =>
   `vc-${d.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30) || 'app'}-${d.id.slice(0, 8)}`;
@@ -47,7 +39,7 @@ export function deploymentService(ctx: Ctx, agents: AgentService) {
     // An offline server would leave the session queued; fail now with the real reason instead of waiting.
     if (!hub.isOnline(d.serverId)) throw new HttpError(503, 'the server is offline');
     const session = await agents.create({
-      serverId: d.serverId, provider: 'custom', cwd: d.workdir, permissionMode: 'auto', command: argv(command),
+      serverId: d.serverId, provider: 'custom', cwd: d.workdir, permissionMode: 'auto', command, appendPrompt: false,
       prompt: `${label} ${d.name}`, name: `${label} · ${d.name}`, env: envOf(d),
     }, userId, `deployment:${d.id}`);
     await onStart?.(session.id);

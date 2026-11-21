@@ -2,13 +2,15 @@ import { eq, sql } from 'drizzle-orm';
 import type { AgentEventEnvelope } from '@viscosity/protocol';
 import { alert, audit, HttpError, type Ctx } from '../context';
 import { schema } from '../db';
-import { expireApprovals, isOffline, isTerminal, reconcile, recordApprovalRequest, recordApprovalResolved } from './sessions';
+import { expireApprovals, isOffline, isTerminal, reconcile, recordApprovalRequest, recordApprovalResolved, WAITING_OFFLINE } from './sessions';
 
 const A = schema.agentSessions;
 type Row = typeof A.$inferSelect;
 export interface AgentInput {
   serverId: string; name?: string; provider: Row['provider']; model?: string; cwd: string; permissionMode: Row['permissionMode'];
   worktreeBranch?: string; credentialId?: string; command?: string[]; prompt: string;
+  /** provider=custom: false runs `command` exactly as given (a plain build/deploy command, not an agent CLI). */
+  appendPrompt?: boolean;
   /** Extra child-process environment for this one launch (e.g. deployment secrets). Never persisted. */
   env?: Record<string, string>;
   /** Pre-chosen session id: makes creation idempotent for callers that must not start a step twice (workflow engine). */
@@ -42,11 +44,11 @@ export function agentService(ctx: Ctx) {
         model: row.model ?? undefined, permissionMode: row.permissionMode,
         // once the worktree exists the session simply runs inside it
         worktreeBranch: row.worktreePath ? undefined : (row.worktreeBranch ?? undefined),
-        resume: resume ?? undefined, env, command: row.command ?? undefined, timeoutMs,
+        resume: resume ?? undefined, env, command: row.command ?? undefined, appendPrompt: row.appendPrompt, timeoutMs,
       });
     } catch (err) {
       if (isOffline(err) && row.status === 'queued') {
-        await db.update(A).set({ statusDetail: 'Waiting for the server to come online.' }).where(eq(A.id, row.id));
+        await db.update(A).set({ statusDetail: WAITING_OFFLINE }).where(eq(A.id, row.id));
         return;
       }
       if (row.status === 'queued') {
@@ -118,7 +120,7 @@ export function agentService(ctx: Ctx) {
     const [row] = await db.insert(A).values({
       id: input.id, serverId: input.serverId, name: input.name || input.prompt.slice(0, 60), provider: input.provider, model: input.model || null,
       cwd: input.cwd, permissionMode: input.permissionMode, worktreeBranch: input.worktreeBranch ?? null, command: input.command ?? null,
-      credentialId: input.credentialId ?? null, task: input.prompt, createdBy: userId,
+      credentialId: input.credentialId ?? null, task: input.prompt, createdBy: userId, appendPrompt: input.appendPrompt ?? true,
     }).returning();
     await audit(ctx, null, 'agent.create', row!.name, { serverId: input.serverId, detail: { provider: input.provider, cwd: input.cwd, permissionMode: input.permissionMode, source }, userId });
     dash.publish('agents', { id: row!.id, status: 'queued' });

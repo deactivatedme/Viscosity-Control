@@ -23,13 +23,6 @@ const Create = z.object({
   credentialId: z.string().uuid().optional(),
 });
 
-/**
- * The custom adapter appends the session prompt as a final argument. This POSIX wrapper
- * drops that last argument and execs the rest, so the command runs exactly as typed
- * (arguments stay separate words — nothing here is parsed by a shell).
- */
-const DROP_LAST_ARG = 'c=$#; n=$#; for a do if [ "$n" -gt 1 ]; then set -- "$@" "$a"; fi; n=$((n-1)); done; shift "$c"; exec "$@"';
-
 /** Projects (source trees on servers) and their GitHub integration. */
 export function projectRoutes(app: FastifyInstance, ctx: Ctx, agents: AgentService) {
   const { db, hub, box, config } = ctx;
@@ -176,7 +169,7 @@ export function projectRoutes(app: FastifyInstance, ctx: Ctx, agents: AgentServi
     const label = body.name ?? body.command.join(' ');
     const session = await agents.create({
       serverId: p.serverId, provider: 'custom', cwd: p.path, permissionMode: 'auto', name: `${p.name}: ${label}`.slice(0, 80),
-      command: ['sh', '-c', DROP_LAST_ARG, 'sh', ...body.command], prompt: label,
+      command: body.command, appendPrompt: false, prompt: label, // run exactly what was typed
     }, me(req).id, `project:${p.id}`);
     await audit(ctx, req, 'project.run', p.name, { serverId: p.serverId, detail: { command: body.command, sessionId: session.id } });
     return session;

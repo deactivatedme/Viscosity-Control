@@ -4,7 +4,7 @@ import path from 'node:path';
 import type { BrowserEventEnvelope } from '@viscosity/protocol';
 import { alert, audit, HttpError, type Ctx } from '../context';
 import { schema } from '../db';
-import { expireApprovals, isOffline, isTerminal, reconcile, recordApprovalRequest, recordApprovalResolved } from './sessions';
+import { expireApprovals, isOffline, isTerminal, reconcile, recordApprovalRequest, recordApprovalResolved, WAITING_OFFLINE } from './sessions';
 
 const B = schema.browserSessions;
 type Row = typeof B.$inferSelect;
@@ -50,7 +50,7 @@ export function browserService(ctx: Ctx) {
       });
     } catch (err) {
       if (isOffline(err)) {
-        await db.update(B).set({ statusDetail: 'Waiting for the server to come online.' }).where(eq(B.id, row.id));
+        await db.update(B).set({ statusDetail: WAITING_OFFLINE }).where(eq(B.id, row.id));
         return;
       }
       const message = err instanceof Error ? err.message : String(err);

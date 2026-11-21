@@ -22,7 +22,7 @@ const tables = { agent: schema.agentSessions, browser: schema.browserSessions } 
 export async function reconcile(ctx: Ctx, kind: Kind, serverId: string, known: Hello['agents'], startQueued: (id: string) => Promise<void>) {
   const { db, hub, dash } = ctx;
   const T = tables[kind];
-  const rows = await db.select({ id: T.id, status: T.status, lastSeq: T.lastSeq }).from(T).where(eq(T.serverId, serverId));
+  const rows = await db.select({ id: T.id, status: T.status, lastSeq: T.lastSeq, statusDetail: T.statusDetail }).from(T).where(eq(T.serverId, serverId));
   const byId = new Map(known.map((k) => [k.id, k]));
 
   for (const row of rows) {
@@ -49,9 +49,14 @@ export async function reconcile(ctx: Ctx, kind: Kind, serverId: string, known: H
       dash.publish(`${kind}:${row.id}`, { status: 'lost' });
       await alert(ctx, { level: 'error', title: `${row.name} was lost`, body: 'The worker restarted while it was running.', serverId, link: `${kind}:${row.id}` });
     }
-    for (const row of rows) if (row.status === 'queued' && !byId.has(row.id)) await startQueued(row.id);
+    // Only sessions parked while the server was offline. One created a moment ago is also `queued`
+    // here but is already being started by its creator; starting it again would be a duplicate.
+    for (const row of rows) if (row.status === 'queued' && row.statusDetail === WAITING_OFFLINE && !byId.has(row.id)) await startQueued(row.id);
   }).catch((err) => ctx.log.error({ err, serverId }, `${kind} reconcile failed`));
 }
+
+/** Marker set on a queued session whose start was deferred because its server was offline. */
+export const WAITING_OFFLINE = 'Waiting for the server to come online.';
 
 export async function expireApprovals(ctx: Ctx, sessionId: string) {
   await ctx.db.update(schema.approvals).set({ status: 'expired', decidedAt: new Date() })
