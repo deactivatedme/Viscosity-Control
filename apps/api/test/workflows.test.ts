@@ -339,7 +339,8 @@ describe('exactly-once under races and restarts', () => {
     const run = await finished(id, 30_000);
     expect(run.status).toBe('failed');
     expect(run.state.steps.a!.result).toBe('timed out after 1s');
-    expect((await get(`/api/agents/${run.state.steps.a!.sessionIds[0]}`)).json.status).toBe('stopped'); // was only queued
+    // The run is recorded as failed first; the queued session is cancelled right after that commit.
+    await until('queued session cancelled', async () => (await get(`/api/agents/${run.state.steps.a!.sessionIds[0]}`)).json.status === 'stopped');
     expect(count('st')).toBe(0);
     writeFileSync(LOG, '');
   });
