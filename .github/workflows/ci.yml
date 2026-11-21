@@ -81,8 +81,10 @@ jobs:
           test "$(ps -o user= -p "$(systemctl show -p MainPID --value viscosity-worker)")" = viscosity
           for i in $(seq 1 30); do
             curl -ksf -b jar "https://localhost/api/servers/$SERVER_ID" > s.json
-            [ "$(jq -r .status s.json)" = online ] && break; sleep 2
+            # online *and* the first real metrics sample has arrived
+            jq -e '.status == "online" and .metrics.memTotal > 0' s.json >/dev/null && break; sleep 2
           done
+          jq '{status, user: .system.user, distro: .system.distro, memTotal: .metrics.memTotal}' s.json
           jq -e '.status == "online" and .system.user == "viscosity" and .metrics.memTotal > 0' s.json
           # managed services: the allow-listed unit can be controlled, anything else is refused
           curl -ksf -b jar "https://localhost/api/servers/$SERVER_ID/services" | jq -e '.[0].name == "cron.service" and .[0].active == "active"'
