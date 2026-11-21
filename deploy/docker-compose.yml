@@ -1,0 +1,53 @@
+# VISCOSITY CONTROL — control plane. Run from the repository root:
+#   cp .env.example .env   # then edit
+#   docker compose -f deploy/docker-compose.yml --env-file .env up -d --build
+name: viscosity
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: viscosity
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: viscosity
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U viscosity"]
+      interval: 5s
+      retries: 10
+
+  api:
+    build: { context: .., dockerfile: deploy/Dockerfile.api }
+    restart: unless-stopped
+    depends_on: { postgres: { condition: service_healthy } }
+    environment:
+      DATABASE_URL: postgres://viscosity:${POSTGRES_PASSWORD}@postgres:5432/viscosity
+      VISCOSITY_SECRET_KEY: ${VISCOSITY_SECRET_KEY:?set VISCOSITY_SECRET_KEY}
+      PUBLIC_ORIGIN: https://${DOMAIN:?set DOMAIN}
+      WORKER_URL: ${WORKER_URL:-}
+    volumes: [apidata:/data]
+
+  web:
+    build: { context: .., dockerfile: deploy/Dockerfile.web }
+    restart: unless-stopped
+    depends_on: [api]
+    environment:
+      API_URL: http://api:4000
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on: [api, web]
+    ports: ["80:80", "443:443", "443:443/udp"]
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+      - caddyconfig:/config
+
+volumes:
+  pgdata:
+  apidata:
+  caddydata:
+  caddyconfig:

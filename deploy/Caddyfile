@@ -1,0 +1,19 @@
+# TLS is automatic (Let's Encrypt) once DOMAIN resolves to this host.
+{$DOMAIN} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy same-origin
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' wss://{$DOMAIN}; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+		-Server
+	}
+
+	# API, WebSockets (dashboard events, terminals, workers) and the worker installer go to the control plane.
+	@control path /api/* /ws/* /install.sh
+	reverse_proxy @control api:4000
+
+	reverse_proxy web:3000
+}

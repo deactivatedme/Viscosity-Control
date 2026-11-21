@@ -1,0 +1,28 @@
+{
+  "name": "@viscosity/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file-if-exists=../../.env src/index.ts",
+    "start": "node dist/index.mjs",
+    "build": "esbuild src/index.ts --bundle --platform=node --format=esm --target=node22 --packages=external --alias:@viscosity/protocol=../../packages/protocol/src/index.ts --outfile=dist/index.mjs",
+    "typecheck": "tsc --noEmit -p .",
+    "db:generate": "drizzle-kit generate"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.1.5",
+    "@fastify/rate-limit": "^11.3.0",
+    "@fastify/websocket": "^11.3.7",
+    "@viscosity/protocol": "workspace:*",
+    "croner": "^11.0.1",
+    "drizzle-orm": "^0.45.4",
+    "fastify": "^5.12.8",
+    "postgres": "^4.1.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.2",
+    "drizzle-kit": "^0.31.11"
+  }
+}

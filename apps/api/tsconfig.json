@@ -1,0 +1,6 @@
+{
+  "extends": "../../tsconfig.base.json",
+  // DOM is only needed because the integration tests import the worker, whose browser observer runs in-page code.
+  "compilerOptions": { "lib": ["ES2023", "DOM"] },
+  "include": ["src", "test", "*.ts"]
+}

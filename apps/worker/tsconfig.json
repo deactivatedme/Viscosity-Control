@@ -1,0 +1,6 @@
+{
+  "extends": "../../tsconfig.base.json",
+  // DOM is only for the page.evaluate() body in src/browser/observe.ts, which runs inside Chromium.
+  "compilerOptions": { "lib": ["ES2023", "DOM", "DOM.Iterable"] },
+  "include": ["src", "test", "*.ts"]
+}
