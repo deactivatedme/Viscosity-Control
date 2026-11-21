@@ -86,7 +86,7 @@ export function NewAgentDialog({ open, onOpenChange }: { open: boolean; onOpenCh
       <form onSubmit={(e) => { e.preventDefault(); if (ready) create.mutate(); }} className="space-y-4">
         <fieldset>
           <legend className="mb-1.5 text-sm text-fg-2">Provider</legend>
-          <div role="radiogroup" className="grid gap-2 sm:grid-cols-3">
+          <div role="radiogroup" className="grid gap-2 @md:grid-cols-3">
             {PROVIDERS.map((x) => (
               <button key={x.value} type="button" role="radio" aria-checked={provider === x.value} onClick={() => setProvider(x.value)}
                 className={cn('flex flex-col items-start justify-start rounded-lg border p-2.5 text-left transition-colors', provider === x.value ? 'border-fg bg-raised' : 'border-line-strong hover:border-fg-4')}>
@@ -97,7 +97,7 @@ export function NewAgentDialog({ open, onOpenChange }: { open: boolean; onOpenCh
           </div>
         </fieldset>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 @md:grid-cols-2">
           <div className="space-y-1.5">
             <Field label="Server" error={servers.length === 0 ? 'No servers yet — add one under Servers first.' : null}>
               <Select value={serverId} onChange={(e) => setServerId(e.target.value)} required>
@@ -124,7 +124,7 @@ export function NewAgentDialog({ open, onOpenChange }: { open: boolean; onOpenCh
           </div>
         ) : (
           <>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 @md:grid-cols-2">
               <div className="space-y-1.5">
                 <Field label="Credential">
                   <Select value={credentialId} onChange={(e) => setCredentialId(e.target.value)}>
@@ -143,7 +143,7 @@ export function NewAgentDialog({ open, onOpenChange }: { open: boolean; onOpenCh
             </div>
             <fieldset>
               <legend className="mb-1.5 text-sm text-fg-2">Permissions</legend>
-              <div role="radiogroup" className="grid gap-2 sm:grid-cols-2">
+              <div role="radiogroup" className="grid gap-2 @md:grid-cols-2">
                 {MODES.map((m) => {
                   const disabled = m.value === 'ask' && provider !== 'claude';
                   return (
@@ -159,7 +159,7 @@ export function NewAgentDialog({ open, onOpenChange }: { open: boolean; onOpenCh
           </>
         )}
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 @md:grid-cols-2">
           <Field label="Name" hint="optional"><Input value={name} onChange={(e) => setName(e.target.value)} maxLength={80} placeholder="defaults to the start of the task" /></Field>
           <div className="space-y-1.5">
             <Field label="Git worktree branch" hint="optional">

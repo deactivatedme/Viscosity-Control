@@ -22,7 +22,7 @@ function TerminalCard() {
   const setTerminal = useUi((s) => s.setTerminal);
   return (
     <Card title="Terminal" description="Applies to every terminal tab in this browser, including ones already open.">
-      <div className="grid max-w-md gap-4 sm:grid-cols-2">
+      <div className="grid max-w-md gap-4 @md:grid-cols-2">
         <Field label="Font family">
           <Select value={terminal.fontFamily} onChange={(e) => setTerminal({ fontFamily: e.target.value })}>{FONTS.map((f) => <option key={f}>{f}</option>)}</Select>
         </Field>

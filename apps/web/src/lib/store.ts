@@ -47,12 +47,21 @@ export const workspace: { current: WorkspaceImperativeHandle<TabData> | null } =
 
 export const tabId = (d: TabData) => (d.id ? `${d.kind}:${d.id}` : d.kind);
 
+/** The tabset the user last touched, or the first one if they have not touched any yet. */
+export function activeTabset(ws: WorkspaceImperativeHandle<TabData>): string | undefined {
+  const first = (n: WorkspaceModel<TabData>['root']): string | undefined => (n.type === 'split' ? n.children.map(first).find(Boolean) : n.id);
+  const model = ws.getModel();
+  const active = ws.getActiveTabsetId();
+  const exists = (n: WorkspaceModel<TabData>['root']): boolean => (n.type === 'split' ? n.children.some(exists) : n.id === active);
+  return active && exists(model.root) ? active : first(model.root);
+}
+
 /** Open (or focus) a tab. `split` opens it beside the active tabset. */
 export function openTab(data: TabData, title: string, opts: { split?: boolean } = {}) {
   const ws = workspace.current;
   if (!ws) return;
   const id = tabId(data);
-  const tabsetId = ws.getActiveTabsetId();
+  const tabsetId = activeTabset(ws);
   if (opts.split && tabsetId) ws.addTab({ id, title, data }, { target: { region: 'right', tabsetId } });
   else ws.addTab({ id, title, data }, tabsetId ? { tabsetId } : undefined);
   ws.selectTab(id);

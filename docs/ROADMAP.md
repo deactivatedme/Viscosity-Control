@@ -2,6 +2,17 @@
 
 Legend: **Verified** = exercised for real in this repository's test runs (how is stated) · **Built, unverified** = implemented against the documented interface but not run against the real dependency here · **Not built**.
 
+## Test results at the time of writing
+
+| Suite | Command | Result |
+| --- | --- | --- |
+| Type checking (4 packages, strict) | `pnpm typecheck` | clean |
+| Unit + integration | `pnpm test` | 56 passed, 1 skipped (the opt-in live Claude test) |
+| UI end-to-end on a production build | `pnpm test:e2e` | 8/8 steps passed |
+| Live Claude agent through the stack | `VISCOSITY_LIVE_CLAUDE=1 pnpm exec vitest run apps/api/test/live-claude.test.ts` | passed; also run once from the dashboard UI (approval → edit → follow-up) |
+
+Linting: ESLint is not configured — `typescript-eslint` does not yet support the TypeScript 7 compiler this repo uses, so strict `tsc` (unused locals/parameters, unchecked index access) is the gate for now.
+
 ## Milestone 1 — acceptance criteria
 
 | Criterion | Status | Evidence |
@@ -31,7 +42,7 @@ Legend: **Verified** = exercised for real in this repository's test runs (how is
 | 5 Browser agents | Isolated Playwright sessions, network guard (SSRF), scripted steps with verification, screenshots, approvals; autonomous mode on the Anthropic Messages API (**built, unverified** — needs an API key) | File upload action; live video stream; stored site logins |
 | 6 Projects & deployments | — | **Not built**: GitHub connection, clone/branches/PRs, project workspaces, Docker/Compose deployments, health checks, rollback. The sidebar entries say so and contain no controls. |
 | 7 Automation | Durable scheduled workflows (cron in Postgres, at-most-once firing across replicas, catch-up after downtime, overlap skip, run history), queued sessions, alerts/notifications | Multi-step workflows with dependencies, retries with limits, checkpoints; BullMQ/Redis (deliberately not added — Postgres covers today's needs) |
-| 8 Hardening | Threat model, integration + unit suites, security review of the trust boundaries listed in the threat model | End-to-end UI suite in CI, load/performance testing, the gaps listed in `THREAT-MODEL.md` |
+| 8 Hardening | Threat model, unit + integration + UI end-to-end suites, a self-review of every trust boundary in the threat model (not an independent audit) | CI wiring, load/performance testing, an external security review, the gaps listed in `THREAT-MODEL.md` |
 
 ## To finish verification on your infrastructure
 

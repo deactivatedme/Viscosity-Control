@@ -64,7 +64,7 @@ export default function Agents() {
           ) : <EmptyState icon={Bot} title="No archived agents">Agents you archive from their workspace are kept here with their full history.</EmptyState>
         ) : (
           <table className="w-full border-collapse text-base">
-            <thead><tr><Th>Agent</Th><Th>Status</Th><Th className="hidden md:table-cell">Server</Th><Th className="hidden lg:table-cell">Started</Th><Th>Duration</Th><Th className="hidden lg:table-cell">Cost</Th><Th /></tr></thead>
+            <thead><tr><Th>Agent</Th><Th>Status</Th><Th className="hidden @xl:table-cell">Server</Th><Th className="hidden @3xl:table-cell">Started</Th><Th>Duration</Th><Th className="hidden @3xl:table-cell">Cost</Th><Th /></tr></thead>
             <tbody>
               {rows.map((a) => {
                 const selected = selection?.kind === 'agent' && selection.id === a.id;
@@ -80,10 +80,10 @@ export default function Agents() {
                       <div className="truncate font-mono text-xs text-fg-3">{a.worktreePath ?? a.cwd}</div>
                     </Td>
                     <Td className="whitespace-nowrap"><Status status={a.status} /></Td>
-                    <Td className="hidden whitespace-nowrap text-sm text-fg-2 md:table-cell">{server?.name ?? '—'}{a.serverOnline ? '' : <span className="text-fg-3"> · offline</span>}</Td>
-                    <Td className="hidden whitespace-nowrap text-sm text-fg-2 lg:table-cell">{a.startedAt ? ago(a.startedAt) : 'not started'}</Td>
+                    <Td className="hidden whitespace-nowrap text-sm text-fg-2 @xl:table-cell">{server?.name ?? '—'}{a.serverOnline ? '' : <span className="text-fg-3"> · offline</span>}</Td>
+                    <Td className="hidden whitespace-nowrap text-sm text-fg-2 @3xl:table-cell">{a.startedAt ? ago(a.startedAt) : 'not started'}</Td>
                     <Td className="tnum whitespace-nowrap font-mono text-xs text-fg-2">{runtime(a, now)}</Td>
-                    <Td className="tnum hidden whitespace-nowrap font-mono text-xs text-fg-2 lg:table-cell">{a.costUsd == null ? <span className="text-fg-4">—</span> : usd(a.costUsd)}</Td>
+                    <Td className="tnum hidden whitespace-nowrap font-mono text-xs text-fg-2 @3xl:table-cell">{a.costUsd == null ? <span className="text-fg-4">—</span> : usd(a.costUsd)}</Td>
                     <Td className="text-right">
                       <Button variant="ghost" size="icon" aria-label={`Open ${a.name}`} onClick={(e) => { e.stopPropagation(); openAgent(a); }}><SquareArrowOutUpRight /></Button>
                     </Td>

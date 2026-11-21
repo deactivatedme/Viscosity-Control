@@ -150,7 +150,7 @@ export function NewBrowserDialog({ open, onOpenChange }: { open: boolean; onOpen
     <Dialog open={open} onOpenChange={close} wide title="New browser session"
       description="Runs in an isolated Chromium on the selected server. Each session gets a fresh profile that is discarded afterwards.">
       <form onSubmit={(e) => { e.preventDefault(); submit(); }} className="space-y-4">
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 @md:grid-cols-2">
           <Field label="Server">
             <Select value={server} onChange={(e) => setServerId(e.target.value)} required>
               {servers.length === 0 && <option value="">No servers enrolled</option>}
@@ -170,7 +170,7 @@ export function NewBrowserDialog({ open, onOpenChange }: { open: boolean; onOpen
         ) : (
           <div className="space-y-4">
             <Field label="Task"><Textarea required value={task} onChange={(e) => setTask(e.target.value)} placeholder="Describe what the agent should accomplish and what to report back." /></Field>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 @md:grid-cols-2">
               <Field label="Start URL" hint="optional"><Input type="url" value={startUrl} onChange={(e) => setStartUrl(e.target.value)} placeholder="https://…" /></Field>
               <Field label="Model" hint="optional"><Input value={model} onChange={(e) => setModel(e.target.value)} placeholder="claude-opus-5-5" className="font-mono text-xs" /></Field>
             </div>

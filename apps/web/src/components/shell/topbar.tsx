@@ -9,20 +9,24 @@ import { openLink } from '@/lib/actions';
 import { cn } from '@/lib/cn';
 import { ago } from '@/lib/format';
 import { useAlerts, useApprovals, useMe } from '@/lib/queries';
-import { openTab, shell, workspace } from '@/lib/store';
+import { activeTabset, openTab, shell, workspace } from '@/lib/store';
 import type { Alert } from '@/lib/types';
 import { events, useTopic } from '@/lib/ws';
 
 const iconBtn = 'relative flex size-7 items-center justify-center rounded-md text-fg-3 transition-colors hover:bg-hover hover:text-fg';
 
+/** Move the selected tab of the active tabset into a new pane on its right. */
 export function splitActive() {
   const ws = workspace.current;
-  const tabsetId = ws?.getActiveTabsetId();
+  const tabsetId = ws && activeTabset(ws);
   if (!ws || !tabsetId) return;
-  const find = (n: ReturnType<typeof ws.getModel>['root']): string | undefined =>
-    n.type === 'split' ? n.children.map(find).find(Boolean) : n.id === tabsetId ? (n.selectedId ?? n.tabs[0]?.id) : undefined;
-  const tab = find(ws.getModel().root);
-  if (tab) ws.moveTab(tab, { region: 'right', tabsetId });
+  type Node = ReturnType<typeof ws.getModel>['root'];
+  const find = (n: Node): Extract<Node, { type: 'tabset' }> | undefined => (n.type === 'split' ? n.children.map(find).find(Boolean) : n.id === tabsetId ? n : undefined);
+  const tabset = find(ws.getModel().root);
+  const tab = tabset?.selectedId ?? tabset?.tabs[0]?.id;
+  if (!tabset || !tab) return;
+  if (tabset.tabs.length < 2) return void toast('Open a second tab to split the view', { description: 'You can also drag any tab to the edge of the workspace.' });
+  ws.moveTab(tab, { region: 'right', tabsetId });
 }
 
 export function TopBar() {

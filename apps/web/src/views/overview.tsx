@@ -59,9 +59,9 @@ function GettingStarted({ steps }: { steps: { done: boolean; title: string; body
   const next = steps.findIndex((s) => !s.done);
   return (
     <section className="vc-field overflow-hidden rounded-xl border border-line-strong">
-      <div className="bg-bg/70 p-5 backdrop-blur-[1px] sm:p-6">
+      <div className="bg-bg/70 p-5 backdrop-blur-[1px] @md:p-6">
         <div className="flex items-center gap-3"><Logo className="size-5" /><h2 className="text-[15px] font-medium tracking-tight">Getting started</h2><span className="font-mono text-xs text-fg-3">{steps.filter((s) => s.done).length}/{steps.length}</span></div>
-        <ol className="mt-4 grid gap-2.5 md:grid-cols-2 xl:grid-cols-4">
+        <ol className="mt-4 grid gap-2.5 @xl:grid-cols-2 @5xl:grid-cols-4">
           {steps.map((s, i) => (
             <li key={s.title} className={cn('rounded-lg border p-3.5 transition-colors', i === next ? 'border-fg-3 bg-raised' : 'border-line bg-panel/80')}>
               <div className="flex items-center gap-2">
@@ -109,7 +109,7 @@ export default function Overview() {
       <div className="mx-auto max-w-6xl space-y-5">
         {onboarding ? <GettingStarted steps={steps} /> : null}
 
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 @3xl:grid-cols-4">
           <Tile label="Servers" value={servers.isPending ? <Skeleton className="h-8 w-16" /> : <>{online}<span className="text-fg-3">/{list.length}</span></>} sub="online" onClick={() => openTab({ kind: 'servers' }, 'Servers')} />
           <Tile label="Agents" value={activeAgents.length} sub={`running · ${agents.length} total`} onClick={() => openTab({ kind: 'agents' }, 'Agents')} />
           <Tile label="Browser sessions" value={activeBrowsers.length} sub={`running · ${browsers.length} total`} onClick={() => openTab({ kind: 'browsers' }, 'Browser Sessions')} />
@@ -119,11 +119,11 @@ export default function Overview() {
         {list.length > 0 && (
           <section>
             <h2 className="mb-2 text-xs uppercase tracking-[0.14em] text-fg-3">Servers</h2>
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{list.map((s) => <ServerCard key={s.id} server={s} />)}</div>
+            <div className="grid gap-3 @md:grid-cols-2 @5xl:grid-cols-3">{list.map((s) => <ServerCard key={s.id} server={s} />)}</div>
           </section>
         )}
 
-        <div className="grid gap-5 lg:grid-cols-2">
+        <div className="grid gap-5 @3xl:grid-cols-2">
           <section className="rounded-xl border bg-panel">
             <h2 className="flex items-center gap-2 border-b px-4 py-2.5 text-xs uppercase tracking-[0.14em] text-fg-3"><Bot className="size-3.5" />Working now</h2>
             {activeAgents.length + activeBrowsers.length === 0 ? <p className="px-4 py-8 text-center text-sm text-fg-3">No agents or browser sessions are running.</p> : (

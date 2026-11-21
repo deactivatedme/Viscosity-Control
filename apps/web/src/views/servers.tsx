@@ -156,11 +156,11 @@ function ServerRow({ server, selected }: { server: Server; selected: boolean }) 
         <div className="font-mono text-xs text-fg-3">{server.system?.hostname ?? 'not enrolled yet'}</div>
       </Td>
       <Td><Status status={server.status} />{!online && server.lastSeenAt ? <div className="text-xs text-fg-3">seen {ago(server.lastSeenAt)}</div> : null}</Td>
-      <Td className="hidden text-sm text-fg-2 lg:table-cell">{server.system ? <>{server.system.distro}<div className="font-mono text-xs text-fg-3">{server.system.cpuCores} cores · {bytes(server.system.memTotal, 0)}</div></> : '—'}</Td>
+      <Td className="hidden text-sm text-fg-2 @3xl:table-cell">{server.system ? <>{server.system.distro}<div className="font-mono text-xs text-fg-3">{server.system.cpuCores} cores · {bytes(server.system.memTotal, 0)}</div></> : '—'}</Td>
       <Td>{cell(latest?.cpu ?? null)}</Td>
-      <Td className="hidden md:table-cell">{cell(mem)}</Td>
-      <Td className="hidden md:table-cell">{cell(disk)}</Td>
-      <Td className="hidden font-mono text-xs text-fg-2 xl:table-cell">{latest ? duration(latest.uptime) : '—'}</Td>
+      <Td className="hidden @xl:table-cell">{cell(mem)}</Td>
+      <Td className="hidden @xl:table-cell">{cell(disk)}</Td>
+      <Td className="hidden font-mono text-xs text-fg-2 @5xl:table-cell">{latest ? duration(latest.uptime) : '—'}</Td>
       <Td className="text-right">
         <div className="flex justify-end gap-0.5" onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}>
           <Button variant="ghost" size="icon" disabled={!online} aria-label={`Open terminal on ${server.name}`} onClick={() => newTerminal(server)}><SquareTerminal /></Button>
@@ -190,7 +190,7 @@ export default function Servers() {
           </EmptyState>
         ) : (
           <table className="w-full border-collapse text-base">
-            <thead><tr><Th>Server</Th><Th>Status</Th><Th className="hidden lg:table-cell">System</Th><Th>CPU</Th><Th className="hidden md:table-cell">Memory</Th><Th className="hidden md:table-cell">Disk</Th><Th className="hidden xl:table-cell">Uptime</Th><Th /></tr></thead>
+            <thead><tr><Th>Server</Th><Th>Status</Th><Th className="hidden @3xl:table-cell">System</Th><Th>CPU</Th><Th className="hidden @xl:table-cell">Memory</Th><Th className="hidden @xl:table-cell">Disk</Th><Th className="hidden @5xl:table-cell">Uptime</Th><Th /></tr></thead>
             <tbody>{servers.data.map((s) => <ServerRow key={s.id} server={s} selected={selection?.kind === 'server' && selection.id === s.id} />)}</tbody>
           </table>
         )}

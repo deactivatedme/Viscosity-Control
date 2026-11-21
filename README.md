@@ -55,6 +55,7 @@ docs/               architecture, threat model, deployment, roadmap
 ```bash
 pnpm typecheck      # strict TypeScript everywhere
 pnpm test           # unit + integration: real Postgres, a real in-process worker, real Chromium
+pnpm test:e2e       # the acceptance flow through the real UI on a throwaway stack (production build)
 ```
 
 ## Keyboard

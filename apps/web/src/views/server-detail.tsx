@@ -44,7 +44,7 @@ function Processes({ serverId, online, canKill }: { serverId: string; online: bo
         <span className="font-mono text-xs text-fg-3">{rows.length} of {q.data.length} · refreshes every 5 s</span>
       </div>
       <table className="w-full border-collapse">
-        <thead><tr><Th>PID</Th><Th>User</Th><Th>CPU</Th><Th>Memory</Th><Th className="hidden md:table-cell">Elapsed</Th><Th>Command</Th><Th /></tr></thead>
+        <thead><tr><Th>PID</Th><Th>User</Th><Th>CPU</Th><Th>Memory</Th><Th className="hidden @xl:table-cell">Elapsed</Th><Th>Command</Th><Th /></tr></thead>
         <tbody>
           {rows.slice(0, 300).map((p) => (
             <tr key={p.pid} className="group transition-colors hover:bg-raised">
@@ -52,7 +52,7 @@ function Processes({ serverId, online, canKill }: { serverId: string; online: bo
               <Td className="text-sm text-fg-2">{p.user}</Td>
               <Td className="tnum whitespace-nowrap font-mono text-xs">{p.cpu.toFixed(1)}%</Td>
               <Td className="tnum whitespace-nowrap font-mono text-xs">{bytes(p.rss)}</Td>
-              <Td className="tnum hidden font-mono text-xs text-fg-3 md:table-cell">{p.elapsed}</Td>
+              <Td className="tnum hidden font-mono text-xs text-fg-3 @xl:table-cell">{p.elapsed}</Td>
               <Td className="max-w-0 w-full"><div className="truncate font-mono text-xs text-fg-2" title={p.command}>{p.command}</div></Td>
               <Td className="py-0 text-right">
                 {canKill ? (
@@ -132,7 +132,7 @@ export default function ServerDetailView({ id }: { id?: string }) {
           </div>
         )}
         {latest ? (
-          <div className="grid shrink-0 grid-cols-2 gap-3 border-b p-4 xl:grid-cols-4">
+          <div className="grid shrink-0 grid-cols-2 gap-3 border-b p-4 @5xl:grid-cols-4">
             <MetricCard label="CPU" value={pct(latest.cpu)} sub={`load ${latest.load.map((l) => l.toFixed(2)).join(' ')}`} values={history.map((m) => m.cpu)} max={100} />
             <MetricCard label="Memory" value={pct((1 - latest.memAvailable / latest.memTotal) * 100)} sub={`${bytes(latest.memTotal - latest.memAvailable)} of ${bytes(latest.memTotal)}`} values={history.map((m) => m.memTotal - m.memAvailable)} max={latest.memTotal} />
             <MetricCard label="Disk /" value={pct((latest.diskUsed / latest.diskTotal) * 100)} sub={`${bytes(latest.diskUsed)} of ${bytes(latest.diskTotal)}`} meter={(latest.diskUsed / latest.diskTotal) * 100} />

@@ -33,7 +33,7 @@ export default function Browsers() {
           </EmptyState>
         ) : (
           <table className="w-full border-collapse text-base">
-            <thead><tr><Th>Session</Th><Th>Status</Th><Th className="hidden md:table-cell">Server</Th><Th className="hidden lg:table-cell">Current URL</Th><Th className="hidden sm:table-cell">Started</Th><Th /></tr></thead>
+            <thead><tr><Th>Session</Th><Th>Status</Th><Th className="hidden @xl:table-cell">Server</Th><Th className="hidden @3xl:table-cell">Current URL</Th><Th className="hidden @md:table-cell">Started</Th><Th /></tr></thead>
             <tbody>
               {sessions.data.map((s) => {
                 const selected = selection?.kind === 'browser' && selection.id === s.id;
@@ -47,9 +47,9 @@ export default function Browsers() {
                       <div className="flex items-center gap-2"><span className="max-w-72 truncate font-medium">{s.name}</span><Badge>{s.mode === 'agent' ? 'auto' : 'script'}</Badge></div>
                     </Td>
                     <Td><Status status={s.status} /></Td>
-                    <Td className="hidden text-sm text-fg-2 md:table-cell">{servers.find((x) => x.id === s.serverId)?.name ?? '—'}{s.serverOnline ? '' : <span className="text-fg-3"> · offline</span>}</Td>
-                    <Td className="hidden lg:table-cell"><span className="block max-w-80 truncate font-mono text-xs text-fg-2">{s.currentUrl ?? s.startUrl ?? '—'}</span></Td>
-                    <Td className="hidden text-sm text-fg-3 sm:table-cell">{s.startedAt ? ago(s.startedAt) : '—'}</Td>
+                    <Td className="hidden text-sm text-fg-2 @xl:table-cell">{servers.find((x) => x.id === s.serverId)?.name ?? '—'}{s.serverOnline ? '' : <span className="text-fg-3"> · offline</span>}</Td>
+                    <Td className="hidden @3xl:table-cell"><span className="block max-w-80 truncate font-mono text-xs text-fg-2">{s.currentUrl ?? s.startUrl ?? '—'}</span></Td>
+                    <Td className="hidden text-sm text-fg-3 @md:table-cell">{s.startedAt ? ago(s.startedAt) : '—'}</Td>
                     <Td className="text-right">
                       <Button variant="ghost" size="icon" aria-label={`Open ${s.name}`} onClick={(e) => { e.stopPropagation(); openBrowser(s); }}><SquareArrowOutUpRight /></Button>
                     </Td>

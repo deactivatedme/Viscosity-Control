@@ -127,7 +127,7 @@ function Explorer({ server }: { server: Server }) {
             : <EmptyState icon={Folder} title="This folder is empty" action={<Button onClick={() => picker.current?.click()}><Upload />Upload files</Button>}>Drop files here to upload them, or create a folder.</EmptyState>
         ) : (
           <table className="w-full border-collapse text-base">
-            <thead><tr><Th>Name</Th><Th className="w-24 text-right">Size</Th><Th className={full('hidden w-28 sm:table-cell')}>Modified</Th><Th className={full('hidden w-28 lg:table-cell')}>Permissions</Th><Th className={full('hidden w-24 lg:table-cell')}>Owner</Th><Th className="w-10" /></tr></thead>
+            <thead><tr><Th>Name</Th><Th className="w-24 text-right">Size</Th><Th className={full('hidden w-28 @md:table-cell')}>Modified</Th><Th className={full('hidden w-28 @3xl:table-cell')}>Permissions</Th><Th className={full('hidden w-24 @3xl:table-cell')}>Owner</Th><Th className="w-10" /></tr></thead>
             <tbody>
               {active.data.map((e) => {
                 const Icon = iconFor(e);
@@ -143,9 +143,9 @@ function Explorer({ server }: { server: Server }) {
                       </div>
                     </Td>
                     <Td className="tnum whitespace-nowrap text-right font-mono text-xs text-fg-2">{e.type === 'dir' ? '' : bytes(e.size)}</Td>
-                    <Td className={full('hidden whitespace-nowrap text-sm text-fg-3 sm:table-cell')}><span title={dateTime(e.mtime)}>{ago(e.mtime)}</span></Td>
-                    <Td className={full('hidden font-mono text-xs text-fg-3 lg:table-cell')}>{e.mode}</Td>
-                    <Td className={full('hidden font-mono text-xs text-fg-3 lg:table-cell')}>{e.owner}</Td>
+                    <Td className={full('hidden whitespace-nowrap text-sm text-fg-3 @md:table-cell')}><span title={dateTime(e.mtime)}>{ago(e.mtime)}</span></Td>
+                    <Td className={full('hidden font-mono text-xs text-fg-3 @3xl:table-cell')}>{e.mode}</Td>
+                    <Td className={full('hidden font-mono text-xs text-fg-3 @3xl:table-cell')}>{e.owner}</Td>
                     <Td className="text-right">
                       <span onClick={(ev) => ev.stopPropagation()} onDoubleClick={(ev) => ev.stopPropagation()}>
                         <Menu trigger={<Button variant="ghost" size="icon" aria-label={`Actions for ${e.name}`}><MoreHorizontal /></Button>}>

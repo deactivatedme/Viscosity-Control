@@ -50,14 +50,14 @@ export function CredentialsCard() {
         ) : (
           <div className="-mx-5 -my-4 overflow-x-auto">
             <table className="w-full border-collapse text-base">
-              <thead><tr><Th>Label</Th><Th>Provider</Th><Th>Secret</Th><Th className="hidden sm:table-cell">Added</Th><Th /></tr></thead>
+              <thead><tr><Th>Label</Th><Th>Provider</Th><Th>Secret</Th><Th className="hidden @md:table-cell">Added</Th><Th /></tr></thead>
               <tbody>
                 {creds.data.map((c) => (
                   <tr key={c.id}>
                     <Td className="font-medium">{c.label}</Td>
                     <Td><Badge>{KINDS[c.kind].label}</Badge></Td>
                     <Td className="font-mono text-xs text-fg-2">••••••••{c.hint.replace('…', '')}</Td>
-                    <Td className="hidden text-sm text-fg-3 sm:table-cell">{ago(c.createdAt)}{c.rotatedAt ? ` · rotated ${ago(c.rotatedAt)}` : ''}</Td>
+                    <Td className="hidden text-sm text-fg-3 @md:table-cell">{ago(c.createdAt)}{c.rotatedAt ? ` · rotated ${ago(c.rotatedAt)}` : ''}</Td>
                     <Td className="text-right">
                       <div className="flex justify-end gap-0.5">
                         <Button variant="ghost" size="icon" aria-label={`Rotate ${c.label}`} onClick={() => setRotating(c)}><RotateCw /></Button>

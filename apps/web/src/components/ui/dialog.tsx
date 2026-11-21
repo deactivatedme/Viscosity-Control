@@ -16,7 +16,7 @@ export function Dialog({ open, onOpenChange, title, description, children, wide 
         <D.Overlay className="fixed inset-0 z-40 bg-black/60 backdrop-blur-[2px] data-[state=open]:animate-in" />
         <D.Content
           className={cn(
-            'fixed left-1/2 top-[12vh] z-50 max-h-[80vh] w-[calc(100vw-2rem)] -translate-x-1/2 overflow-y-auto rounded-xl border border-line-strong',
+            '@container fixed left-1/2 top-[12vh] z-50 max-h-[80vh] w-[calc(100vw-2rem)] -translate-x-1/2 overflow-y-auto rounded-xl border border-line-strong',
             'bg-panel shadow-[0_24px_80px_rgb(0_0_0/0.6)] data-[state=open]:animate-in focus:outline-none', wide ? 'max-w-2xl' : 'max-w-md',
           )}
         >

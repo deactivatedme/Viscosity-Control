@@ -112,7 +112,7 @@ function Audit() {
       </div>
       {rows.length === 0 ? <EmptyState icon={ScrollText} title="No matching entries">Nothing in the loaded audit entries matches this filter.</EmptyState> : (
         <table className="w-full border-collapse text-base">
-          <thead><tr><Th className="w-8" /><Th>Time</Th><Th>Action</Th><Th>Target</Th><Th className="hidden md:table-cell">User</Th><Th className="hidden lg:table-cell">IP</Th></tr></thead>
+          <thead><tr><Th className="w-8" /><Th>Time</Th><Th>Action</Th><Th>Target</Th><Th className="hidden @xl:table-cell">User</Th><Th className="hidden @3xl:table-cell">IP</Th></tr></thead>
           <tbody>
             {rows.map((r) => {
               const open = openId === r.id;
@@ -129,8 +129,8 @@ function Audit() {
                     <Td className="whitespace-nowrap font-mono text-xs text-fg-2">{dateTime(r.ts)}</Td>
                     <Td className="font-mono text-xs">{r.action}</Td>
                     <Td className="max-w-72 truncate font-mono text-xs text-fg-2">{r.target ?? '—'}</Td>
-                    <Td className="hidden text-sm text-fg-2 md:table-cell">{r.user ?? <span className="text-fg-3">worker / system</span>}</Td>
-                    <Td className="hidden font-mono text-xs text-fg-3 lg:table-cell">{r.ip ?? '—'}</Td>
+                    <Td className="hidden text-sm text-fg-2 @xl:table-cell">{r.user ?? <span className="text-fg-3">worker / system</span>}</Td>
+                    <Td className="hidden font-mono text-xs text-fg-3 @3xl:table-cell">{r.ip ?? '—'}</Td>
                   </tr>
                   {open && <tr><td colSpan={6} className="border-b bg-bg px-4 py-2.5"><pre className="overflow-auto font-mono text-xs leading-relaxed text-fg-2">{JSON.stringify(r.detail, null, 2)}</pre></td></tr>}
                 </Fragment>

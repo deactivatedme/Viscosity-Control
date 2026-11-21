@@ -11,18 +11,16 @@
     "dev:worker": "pnpm --filter @viscosity/worker dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
-    "lint": "eslint .",
+    "lint": "pnpm typecheck",
     "test": "vitest run",
-    "test:e2e": "pnpm --filter @viscosity/e2e test",
+    "test:e2e": "pnpm --filter @viscosity/web e2e",
     "db:generate": "pnpm --filter @viscosity/api db:generate"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
     "esbuild": "^0.28.2",
-    "eslint": "^10.15.0",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
-    "typescript-eslint": "^8.73.0",
     "vitest": "^5.1.1"
   }
 }

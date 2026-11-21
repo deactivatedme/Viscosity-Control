@@ -87,7 +87,7 @@ function ContainerTable({ server }: { server: Server }) {
   return (
     <>
       <table className="w-full border-collapse text-base">
-        <thead><tr><Th>Container</Th><Th>State</Th><Th className="hidden lg:table-cell">Ports</Th><Th className="w-20 text-right">CPU</Th><Th className="hidden w-40 text-right sm:table-cell">Memory</Th><Th className="w-28" /></tr></thead>
+        <thead><tr><Th>Container</Th><Th>State</Th><Th className="hidden @3xl:table-cell">Ports</Th><Th className="w-20 text-right">CPU</Th><Th className="hidden w-40 text-right @md:table-cell">Memory</Th><Th className="w-28" /></tr></thead>
         <tbody>
           {ordered.map(([project, containers]) => (
             <Fragment key={project}>
@@ -113,9 +113,9 @@ function ContainerTable({ server }: { server: Server }) {
                       <Status status={c.state} />
                       <div className="text-xs text-fg-3">{c.status}{c.health ? ` · ${c.health}` : ''}</div>
                     </Td>
-                    <Td className="hidden max-w-56 truncate font-mono text-xs text-fg-2 lg:table-cell">{c.ports || '—'}</Td>
+                    <Td className="hidden max-w-56 truncate font-mono text-xs text-fg-2 @3xl:table-cell">{c.ports || '—'}</Td>
                     <Td className="tnum text-right font-mono text-xs">{st ? `${st.cpuPct.toFixed(1)}%` : <span className="text-fg-4">—</span>}</Td>
-                    <Td className="tnum hidden text-right font-mono text-xs sm:table-cell">{st ? `${bytes(st.memUsed)} / ${bytes(st.memLimit)}` : <span className="text-fg-4">—</span>}</Td>
+                    <Td className="tnum hidden text-right font-mono text-xs @md:table-cell">{st ? `${bytes(st.memUsed)} / ${bytes(st.memLimit)}` : <span className="text-fg-4">—</span>}</Td>
                     <Td className="text-right">
                       <div className="flex justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
                         {running

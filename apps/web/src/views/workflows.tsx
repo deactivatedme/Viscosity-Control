@@ -146,7 +146,7 @@ export default function Workflows() {
           </EmptyState>
         ) : (
           <table className="w-full border-collapse">
-            <thead><tr><Th className="w-8" /><Th>Workflow</Th><Th className="hidden md:table-cell">Server</Th><Th>Schedule</Th><Th className="hidden lg:table-cell">Next run</Th><Th>Last run</Th><Th>On</Th><Th /></tr></thead>
+            <thead><tr><Th className="w-8" /><Th>Workflow</Th><Th className="hidden @xl:table-cell">Server</Th><Th>Schedule</Th><Th className="hidden @3xl:table-cell">Next run</Th><Th>Last run</Th><Th>On</Th><Th /></tr></thead>
             <tbody>
               {q.data.map((wf) => {
                 const open = expanded === wf.id;
@@ -156,9 +156,9 @@ export default function Workflows() {
                     <tr className="transition-colors hover:bg-raised">
                       <Td className="pr-0"><button aria-label={open ? 'Hide runs' : 'Show runs'} aria-expanded={open} onClick={() => setExpanded(open ? null : wf.id)} className="rounded p-1 text-fg-3 hover:bg-active hover:text-fg">{open ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}</button></Td>
                       <Td><div className="flex items-center gap-2 font-medium"><Icon className="size-3.5 text-fg-3" strokeWidth={1.6} />{wf.name}</div></Td>
-                      <Td className="hidden text-sm text-fg-2 md:table-cell">{servers.find((s) => s.id === wf.serverId)?.name ?? '—'}</Td>
+                      <Td className="hidden text-sm text-fg-2 @xl:table-cell">{servers.find((s) => s.id === wf.serverId)?.name ?? '—'}</Td>
                       <Td><div className="text-sm">{describe(wf.schedule)}</div>{wf.schedule ? <div className="font-mono text-xs text-fg-3">{wf.schedule} · {wf.timezone}</div> : null}</Td>
-                      <Td className="hidden text-sm text-fg-2 lg:table-cell">{wf.enabled && wf.nextRunAt ? dateTime(wf.nextRunAt) : '—'}</Td>
+                      <Td className="hidden text-sm text-fg-2 @3xl:table-cell">{wf.enabled && wf.nextRunAt ? dateTime(wf.nextRunAt) : '—'}</Td>
                       <Td>{wf.lastRun ? <div>{wf.lastRun.status === 'started' ? <Status status={wf.lastRun.outcome ?? 'lost'} /> : <span className="text-sm text-fg-2">{wf.lastRun.status}</span>}<div className="text-xs text-fg-3">{ago(wf.lastRun.startedAt)}</div></div> : <span className="text-sm text-fg-4">never</span>}</Td>
                       <Td><Toggle checked={wf.enabled} disabled={!canEdit || !wf.schedule} label={`${wf.enabled ? 'Disable' : 'Enable'} schedule for ${wf.name}`} onChange={(enabled) => toggle.mutate({ id: wf.id, enabled })} /></Td>
                       <Td className="text-right">

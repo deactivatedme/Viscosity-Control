@@ -95,5 +95,6 @@ Checks:
 ```bash
 pnpm typecheck                # strict TypeScript across all packages
 pnpm test                     # unit + integration (needs local Postgres; drives a real worker and Chromium)
+pnpm test:e2e                 # UI acceptance flow: fresh DB, production build, real worker (ports 3100/4100)
 VISCOSITY_LIVE_CLAUDE=1 pnpm exec vitest run apps/api/test/live-claude.test.ts   # real Claude agent; spends tokens
 ```

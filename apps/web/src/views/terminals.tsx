@@ -41,15 +41,15 @@ export default function Terminals() {
           </EmptyState>
         ) : (
           <table className="w-full border-collapse text-base">
-            <thead><tr><Th>Session</Th><Th>Server</Th><Th className="hidden sm:table-cell">Runs as</Th><Th className="hidden md:table-cell">Shell</Th><Th>Opened</Th><Th /></tr></thead>
+            <thead><tr><Th>Session</Th><Th>Server</Th><Th className="hidden @md:table-cell">Runs as</Th><Th className="hidden @xl:table-cell">Shell</Th><Th>Opened</Th><Th /></tr></thead>
             <tbody>
               {terminals.data.map((t) => (
                 <tr key={t.id} tabIndex={0} onDoubleClick={() => openTerminalTab(t)} onKeyDown={(e) => { if (e.key === 'Enter') openTerminalTab(t); }}
                   className="cursor-default transition-colors hover:bg-raised focus-visible:bg-raised">
                   <Td><span className="font-mono text-sm">{t.title}</span></Td>
                   <Td className="text-fg-2">{serverName(t.serverId)}</Td>
-                  <Td className="hidden font-mono text-xs text-fg-2 sm:table-cell">{t.runAs ?? '—'}</Td>
-                  <Td className="hidden font-mono text-xs text-fg-2 md:table-cell">{t.shell ?? '—'}</Td>
+                  <Td className="hidden font-mono text-xs text-fg-2 @md:table-cell">{t.runAs ?? '—'}</Td>
+                  <Td className="hidden font-mono text-xs text-fg-2 @xl:table-cell">{t.shell ?? '—'}</Td>
                   <Td className="text-sm text-fg-3">{ago(t.createdAt)}</Td>
                   <Td className="text-right">
                     <div className="flex justify-end gap-1" onDoubleClick={(e) => e.stopPropagation()}>
