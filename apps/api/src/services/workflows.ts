@@ -169,23 +169,43 @@ export function workflowService(ctx: Ctx, agents: AgentService, browsers: Browse
     else await browsers.create({ ...(step.config as unknown as BrowserInput), ...extra }, state.userId, `workflow-run:${runId}`);
   }
 
-  /** Lock a live run, let `fn` mutate its state, persist the result. Returns the updated run, or null if it is not live. */
+  /**
+   * Lock a live run, let `fn` change its state, persist the result and tell the dashboard.
+   * Returns the run as it is afterwards, or null if it is not live (finished, cancelled, or gone).
+   */
   async function mutate(runId: string, fn: (state: RunState, run: Run, tx: Parameters<Parameters<typeof db.transaction>[0]>[0]) => Promise<Partial<Run> | void>): Promise<Run | null> {
-    return db.transaction(async (tx) => {
+    let changed = false;
+    const updated = await db.transaction(async (tx) => {
       const [current] = await tx.select().from(R).where(eq(R.id, runId)).for('update');
       if (!current || !isLive(current.status) || !current.state) return null;
       const state = structuredClone(current.state) as unknown as RunState;
       const extra = (await fn(state, current, tx)) ?? {};
+      // A failed step fails the run: nothing new starts, gates are withdrawn, what is already running may finish.
+      const failed = state.def.find((s) => state.steps[s.id]!.status === 'failed');
+      if (failed) {
+        const now = new Date();
+        for (const st of Object.values(state.steps)) {
+          if (st.status === 'pending' || st.status === 'waiting_approval') Object.assign(st, { status: 'skipped', finishedAt: now.toISOString(), result: `Skipped because "${failed.name}" failed.` });
+        }
+        await tx.update(schema.approvals).set({ status: 'expired', decidedAt: now })
+          .where(and(eq(schema.approvals.sessionId, runId), eq(schema.approvals.kind, 'workflow'), eq(schema.approvals.status, 'pending')));
+      }
       const status = extra.status ?? runStatus(state);
-      const failed = Object.entries(state.steps).find(([, s]) => s.status === 'failed');
-      const [updated] = await tx.update(R).set({
+      changed = status !== current.status || JSON.stringify(state) !== JSON.stringify(current.state) || Object.keys(extra).length > 0;
+      if (!changed) return current;
+      const [row] = await tx.update(R).set({
         state: state as unknown as Record<string, unknown>, status,
         finishedAt: isLive(status) ? null : new Date(),
-        detail: status === 'failed' && failed ? `${state.def.find((d) => d.id === failed[0])?.name}: ${failed[1].result ?? 'failed'}` : current.detail,
+        detail: status === 'failed' && failed ? `${failed.name}: ${state.steps[failed.id]!.result ?? 'failed'}` : current.detail,
         ...extra,
       }).where(eq(R.id, runId)).returning();
-      return updated!;
+      return row!;
     });
+    if (updated && changed) {
+      publish(updated);
+      if (updated.status === 'failed') await alert(ctx, { level: 'error', title: `Workflow "${(updated.state as unknown as RunState).name}" failed`, body: updated.detail ?? undefined });
+    }
+    return updated;
   }
 
   /** Move one run as far as it can go right now. Idempotent and safe to race. */
@@ -193,11 +213,9 @@ export function workflowService(ctx: Ctx, agents: AgentService, browsers: Browse
     const starts: { step: Step; sessionId: string }[] = [];
     const stops: { kind: Step['kind']; sessionId: string }[] = [];
     const gates: Step[] = [];
-    let before = '';
     let snapshot: RunState | undefined;
 
     const run = await mutate(runId, async (state, current, tx) => {
-      before = JSON.stringify(current.state);
       const now = new Date();
 
       // 1. settle running steps from the sessions that carry them
@@ -226,20 +244,8 @@ export function workflowService(ctx: Ctx, agents: AgentService, browsers: Browse
         }
       }
 
-      // 2. a failed step fails the run: nothing new starts, what is already running may finish
-      const failed = state.def.find((s) => state.steps[s.id]!.status === 'failed');
-      if (failed) {
-        for (const step of state.def) {
-          const st = state.steps[step.id]!;
-          if (st.status !== 'pending' && st.status !== 'waiting_approval') continue;
-          st.status = 'skipped';
-          st.finishedAt = now.toISOString();
-          st.result = `Skipped because "${failed.name}" failed.`;
-        }
-        await tx.update(schema.approvals).set({ status: 'expired', decidedAt: now })
-          .where(and(eq(schema.approvals.sessionId, runId), eq(schema.approvals.kind, 'workflow'), eq(schema.approvals.status, 'pending')));
-      } else {
-        // 3. claim every step whose dependencies have all succeeded (independent steps start together)
+      // 2. claim every step whose dependencies have all succeeded (independent steps start together) — unless the run has failed
+      if (!state.def.some((s) => state.steps[s.id]!.status === 'failed')) {
         for (const step of state.def) {
           const st = state.steps[step.id]!;
           if (st.status !== 'pending' || !step.dependsOn.every((d) => state.steps[d]?.status === 'succeeded')) continue;
@@ -289,8 +295,6 @@ export function workflowService(ctx: Ctx, agents: AgentService, browsers: Browse
       }
     }));
 
-    if (JSON.stringify(run.state) !== before || run.status !== 'running') publish(run);
-    if (run.status === 'failed') await alert(ctx, { level: 'error', title: `Workflow "${snapshot.name}" failed`, body: run.detail ?? undefined });
     if (again) await advance(runId);
   }
 
@@ -347,7 +351,6 @@ export function workflowService(ctx: Ctx, agents: AgentService, browsers: Browse
     for (const s of active) await stopSession(s.kind, s.sessionId).catch((err) => problems.push(`${s.sessionId}: ${err instanceof Error ? err.message : String(err)}`));
     if (problems.length) await db.update(R).set({ detail: `Cancelled, but could not confirm stopping: ${problems.join('; ')}` }).where(eq(R.id, runId));
     dash.publish('approvals', { sessionId: runId });
-    publish(updated);
     return getRun(runId);
   }
 

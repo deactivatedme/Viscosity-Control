@@ -55,6 +55,8 @@ export function projectRoutes(app: FastifyInstance, ctx: Ctx, agents: AgentServi
     if (!hub.isOnline(p.serverId)) return null;
     try {
       const s = await hub.call(p.serverId, 'git.status', { cwd: p.path }, 8000);
+      // "not a repository" is also what a deleted directory looks like to git; tell the two apart.
+      if (!s.isRepo) await hub.call(p.serverId, 'fs.stat', { path: p.path }, 8000);
       return { isRepo: s.isRepo, branch: s.branch, changed: s.files.length };
     } catch {
       return null; // directory removed or worker busy: the list still renders, the detail view shows the real error

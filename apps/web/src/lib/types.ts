@@ -12,7 +12,7 @@ export interface ServerDetail extends Server {
 }
 export interface Enrollment { token: string; expiresAt: string; command: string }
 
-export interface Approval { id: string; kind: 'agent' | 'browser'; sessionId: string; serverId: string; approvalId: string; summary: string; payload: { tool?: string; input?: unknown } | null; status: string; createdAt: string }
+export interface Approval { id: string; kind: 'agent' | 'browser' | 'workflow'; sessionId: string; serverId: string; approvalId: string; summary: string; payload: { tool?: string; input?: unknown } | null; status: string; createdAt: string }
 
 export interface Agent {
   id: string; serverId: string; name: string; provider: AgentProvider; model: string | null; cwd: string;
@@ -40,8 +40,18 @@ export interface Credential { id: string; kind: 'anthropic' | 'openai' | 'github
 export interface Alert { id: string; level: 'info' | 'warning' | 'error'; title: string; body: string | null; link: string | null; serverId: string | null; readAt: string | null; createdAt: string }
 export interface AuditEntry { id: number; ts: string; action: string; target: string | null; serverId: string | null; detail: unknown; ip: string | null; user: string | null }
 
-export interface WorkflowRun { id: string; trigger: 'schedule' | 'manual'; status: 'started' | 'skipped' | 'failed'; sessionId: string | null; detail: string | null; startedAt: string; outcome: string | null }
+export type WorkflowStepStatus = 'pending' | 'running' | 'waiting_approval' | 'succeeded' | 'failed' | 'skipped' | 'cancelled';
+export interface WorkflowStep { id: string; name: string; kind: 'agent' | 'browser' | 'approval'; config: Record<string, unknown>; serverId: string; dependsOn: string[]; retries: number; timeoutSec?: number }
+export interface WorkflowStepState { status: WorkflowStepStatus; attempts: number; sessionIds: string[]; startedAt?: string; finishedAt?: string; result?: string }
+export interface WorkflowRun {
+  id: string; workflowId: string; trigger: 'schedule' | 'manual';
+  /** `started` only appears on runs recorded before the multi-step engine. */
+  status: 'running' | 'waiting_approval' | 'succeeded' | 'failed' | 'cancelled' | 'skipped' | 'started';
+  sessionId: string | null; detail: string | null; startedAt: string; finishedAt: string | null;
+  /** The definition the run started with, and each step's progress. */
+  state: { def: WorkflowStep[]; name: string; steps: Record<string, WorkflowStepState> } | null;
+}
 export interface WorkflowItem {
-  id: string; name: string; kind: 'agent' | 'browser'; serverId: string; config: Record<string, unknown>; schedule: string | null; timezone: string;
+  id: string; name: string; kind: 'agent' | 'browser'; serverId: string; steps: WorkflowStep[]; schedule: string | null; timezone: string;
   enabled: boolean; nextRunAt: string | null; lastRunAt: string | null; createdAt: string; lastRun: WorkflowRun | null;
 }

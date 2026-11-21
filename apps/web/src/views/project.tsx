@@ -124,7 +124,7 @@ export default function ProjectView({ id }: { id?: string }) {
       <RunDialog project={project} open={dialog === 'run'} onOpenChange={(o) => setDialog(o ? 'run' : null)} />
       <Dialog open={dialog === 'branch'} onOpenChange={(o) => setDialog(o ? 'branch' : null)} title="New branch" description={<>Created from <span className="font-mono text-fg-2">{current ?? 'the current commit'}</span> and checked out. Uncommitted changes come along.</>}>
         <form onSubmit={(e) => { e.preventDefault(); checkout.mutate({ ref: newBranch.trim(), create: true }); }}>
-          <Field label="Branch name"><Input autoFocus required value={newBranch} onChange={(e) => setNewBranch(e.target.value)} placeholder="feature/my-change" pattern="[\w./@\-]+" className="font-mono text-sm" spellCheck={false} /></Field>
+          <Field label="Branch name"><Input autoFocus required value={newBranch} onChange={(e) => setNewBranch(e.target.value)} placeholder="feature/my-change" pattern="[\w.\/@\-]+" className="font-mono text-sm" spellCheck={false} /></Field>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setDialog(null)}>Cancel</Button>
             <Button type="submit" variant="primary" loading={checkout.isPending} disabled={!newBranch.trim()}>Create branch</Button>

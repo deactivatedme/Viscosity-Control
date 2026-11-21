@@ -32,7 +32,7 @@ export function EnvEditor({ deployment, canEdit }: { deployment: Deployment; can
               <span className="min-w-0 flex-1 truncate font-mono text-xs">{k}</span>
               {replacing === k ? (
                 <form className="flex gap-1.5" onSubmit={(e) => { e.preventDefault(); patch.mutate({ [k]: replacement }, { onSuccess: () => { setReplacing(null); setReplacement(''); toast(`${k} replaced — applies on the next deploy`); } }); }}>
-                  <Input autoFocus type="password" autoComplete="off" aria-label={`New value for ${k}`} placeholder="new value" className="h-7 w-44 font-mono" value={replacement} onChange={(e) => setReplacement(e.target.value)} />
+                  <div className="w-44"><Input autoFocus type="password" autoComplete="off" aria-label={`New value for ${k}`} placeholder="new value" className="h-7 font-mono" value={replacement} onChange={(e) => setReplacement(e.target.value)} /></div>
                   <Button size="sm" type="submit" variant="primary" loading={patch.isPending}>Save</Button>
                   <Button size="sm" variant="ghost" onClick={() => setReplacing(null)}>Cancel</Button>
                 </form>
@@ -50,9 +50,9 @@ export function EnvEditor({ deployment, canEdit }: { deployment: Deployment; can
         </ul>
       )}
       {canEdit && (
-        <form className="flex flex-wrap gap-2 border-t px-4 py-2.5" onSubmit={(e) => { e.preventDefault(); patch.mutate({ [key.trim()]: value }, { onSuccess: () => { setKey(''); setValue(''); toast('Variable saved — applies on the next deploy'); } }); }}>
-          <Input aria-label="New variable name" placeholder="NAME" className="h-7 w-40 font-mono" value={key} onChange={(e) => setKey(e.target.value)} />
-          <Input aria-label="New variable value" type="password" autoComplete="off" placeholder="value" className="h-7 min-w-32 flex-1 font-mono" value={value} onChange={(e) => setValue(e.target.value)} />
+        <form className="flex flex-wrap items-center gap-2 border-t px-4 py-2.5" onSubmit={(e) => { e.preventDefault(); patch.mutate({ [key.trim()]: value }, { onSuccess: () => { setKey(''); setValue(''); toast('Variable saved — applies on the next deploy'); } }); }}>
+          <div className="w-40"><Input aria-label="New variable name" placeholder="NAME" className="h-7 font-mono" value={key} onChange={(e) => setKey(e.target.value)} /></div>
+          <div className="min-w-32 flex-1"><Input aria-label="New variable value" type="password" autoComplete="off" placeholder="value" className="h-7 font-mono" value={value} onChange={(e) => setValue(e.target.value)} /></div>
           <Button size="sm" type="submit" disabled={!key.trim()} loading={patch.isPending && !replacing}><Plus />Add</Button>
         </form>
       )}

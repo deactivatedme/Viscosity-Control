@@ -11,6 +11,7 @@ import { api, errMsg } from '@/lib/api';
 import { cn } from '@/lib/cn';
 import { ago, dateTime } from '@/lib/format';
 import { useAlerts, useApprovals, useMe } from '@/lib/queries';
+import { openTab } from '@/lib/store';
 import type { Approval, AuditEntry } from '@/lib/types';
 
 type Tab = 'approvals' | 'notifications' | 'audit';
@@ -21,7 +22,9 @@ function ApprovalCard({ a, canDecide }: { a: Approval; canDecide: boolean }) {
   const decide = async (decision: 'allow' | 'deny') => {
     setBusy(decision);
     try {
-      await api(`/api/${a.kind === 'agent' ? 'agents' : 'browser'}/${a.sessionId}/approvals/${encodeURIComponent(a.approvalId)}`, { body: { decision } });
+      // workflow gates are keyed by run id + step id
+      const base = a.kind === 'workflow' ? `/api/workflows/runs/${a.sessionId}` : `/api/${a.kind === 'agent' ? 'agents' : 'browser'}/${a.sessionId}`;
+      await api(`${base}/approvals/${encodeURIComponent(a.approvalId)}`, { body: { decision } });
       await qc.invalidateQueries({ queryKey: ['approvals'] });
     } catch (e) { toast.error(`Could not ${decision} the request`, { description: errMsg(e) }); } finally { setBusy(null); }
   };
@@ -29,7 +32,7 @@ function ApprovalCard({ a, canDecide }: { a: Approval; canDecide: boolean }) {
   return (
     <li className="rounded-lg border border-line-strong bg-panel p-3.5">
       <div className="flex flex-wrap items-center gap-2">
-        <Badge>{a.kind === 'agent' ? 'agent' : 'browser'}</Badge>
+        <Badge>{a.kind}</Badge>
         {a.payload?.tool ? <span className="font-mono text-xs font-medium">{a.payload.tool}</span> : null}
         <span className="ml-auto text-xs text-fg-3">{ago(a.createdAt)}</span>
       </div>
@@ -38,7 +41,9 @@ function ApprovalCard({ a, canDecide }: { a: Approval; canDecide: boolean }) {
       <div className="mt-3 flex flex-wrap gap-2">
         {canDecide && <Button size="sm" variant="primary" loading={busy === 'allow'} disabled={busy !== null} onClick={() => decide('allow')}>Allow</Button>}
         {canDecide && <Button size="sm" loading={busy === 'deny'} disabled={busy !== null} onClick={() => decide('deny')}>Deny</Button>}
-        <Button size="sm" variant="ghost" onClick={() => openLink(`${a.kind}:${a.sessionId}`, a.kind === 'agent' ? 'Agent' : 'Browser session')}><SquareArrowOutUpRight />Open session</Button>
+        {a.kind === 'workflow'
+          ? <Button size="sm" variant="ghost" onClick={() => openTab({ kind: 'workflows' }, 'Workflows')}><SquareArrowOutUpRight />Open workflows</Button>
+          : <Button size="sm" variant="ghost" onClick={() => openLink(`${a.kind}:${a.sessionId}`, a.kind === 'agent' ? 'Agent' : 'Browser session')}><SquareArrowOutUpRight />Open session</Button>}
       </div>
     </li>
   );

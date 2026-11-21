@@ -96,8 +96,9 @@ export function DeploymentDialog({ open, onOpenChange, editing, onSaved }: { ope
             <div className="flex items-baseline justify-between text-sm text-fg-2">Environment variables<span className="text-xs text-fg-3">encrypted at rest · values are write-only</span></div>
             {env.map((row, i) => (
               <div key={i} className="flex gap-2">
-                <Input aria-label={`Variable ${i + 1} name`} className="w-2/5 font-mono" placeholder="NAME" value={row.k} onChange={(e) => setEnv(env.map((r, j) => (j === i ? { ...r, k: e.target.value } : r)))} />
-                <Input aria-label={`Variable ${i + 1} value`} type="password" autoComplete="off" className="flex-1 font-mono" placeholder="value" value={row.v} onChange={(e) => setEnv(env.map((r, j) => (j === i ? { ...r, v: e.target.value } : r)))} />
+                {/* Input is w-full by design, so the columns are sized by wrappers */}
+                <div className="w-2/5"><Input aria-label={`Variable ${i + 1} name`} className="font-mono" placeholder="NAME" value={row.k} onChange={(e) => setEnv(env.map((r, j) => (j === i ? { ...r, k: e.target.value } : r)))} /></div>
+                <div className="min-w-0 flex-1"><Input aria-label={`Variable ${i + 1} value`} type="password" autoComplete="off" className="font-mono" placeholder="value" value={row.v} onChange={(e) => setEnv(env.map((r, j) => (j === i ? { ...r, v: e.target.value } : r)))} /></div>
                 <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Remove variable ${i + 1}`} onClick={() => setEnv(env.filter((_, j) => j !== i))}><X /></Button>
               </div>
             ))}
