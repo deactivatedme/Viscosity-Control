@@ -12,7 +12,7 @@ import { buildItems, toolSummary } from './stream';
 
 export type PanelTab = 'changes' | 'commands' | 'files';
 
-function Diff({ text }: { text: string }) {
+export function Diff({ text }: { text: string }) {
   return (
     <pre className="overflow-x-auto py-2 font-mono text-xs leading-[1.55]">
       {text.split('\n').map((line, i) => {

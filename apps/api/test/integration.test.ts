@@ -361,16 +361,16 @@ describe('scheduled workflows', () => {
     expect(new Date(wf.nextRunAt).getTime()).toBeGreaterThan(Date.now());
     const run = await until('run outcome', async () => {
       const runs = (await get(`/api/workflows/${wfId}/runs`)).json;
-      return runs[0]?.outcome === 'completed' ? runs : null;
+      return runs[0]?.status === 'succeeded' ? runs : null;
     });
     expect(run).toHaveLength(1);
-    expect(run[0]).toMatchObject({ trigger: 'schedule', status: 'started' });
+    expect(run[0]).toMatchObject({ trigger: 'schedule', status: 'succeeded' });
     const events = (await get(`/api/agents/${run[0].sessionId}/events`)).json;
     expect(events.map((e: any) => e.event.text ?? '').join('')).toContain('scheduled run ok');
   });
 
   it('runs on demand, can be disabled, and refuses unattended approval modes', async () => {
-    expect((await post(`/api/workflows/${wfId}/run`)).json.status).toBe('started');
+    expect((await post(`/api/workflows/${wfId}/run`)).json.status).toBe('running');
     const off = await call('PATCH', `/api/workflows/${wfId}`, { body: { enabled: false }, cookie: admin });
     expect(off.json).toMatchObject({ enabled: false, nextRunAt: null });
     await built.ctx.db.update(schema.agentSessions).set({ permissionMode: 'ask', provider: 'claude' }).where(eq(schema.agentSessions.id, templateId));

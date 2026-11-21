@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TEST_ADMIN_DATABASE_URL: postgres://viscosity:viscosity@127.0.0.1:5432/postgres
+
+jobs:
+  test:
+    name: Typecheck, unit, integration, UI end-to-end
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env: { POSTGRES_USER: viscosity, POSTGRES_PASSWORD: viscosity }
+        ports: ['5432:5432']
+        options: --health-cmd "pg_isready -U viscosity" --health-interval 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @viscosity/worker exec playwright install --with-deps chromium
+      - run: git config --global user.name ci && git config --global user.email ci@localhost && git config --global init.defaultBranch main
+      - run: pnpm typecheck
+      # Integration suites drive a real worker, real Chromium and (for deployments) the runner's real Docker.
+      - run: pnpm test
+      - run: pnpm test:e2e
+
+  deploy-assets:
+    name: Build images, run the Compose stack, install a worker with systemd
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and start the control plane exactly as documented
+        run: |
+          cat > .env <<ENV
+          DOMAIN=localhost
+          POSTGRES_PASSWORD=$(openssl rand -hex 16)
+          VISCOSITY_SECRET_KEY=$(openssl rand -hex 32)
+          ENV
+          docker compose -f deploy/docker-compose.yml --env-file .env up -d --build
+      - name: The dashboard and API answer through Caddy over TLS
+        run: |
+          for i in $(seq 1 60); do curl -ksf https://localhost/api/health && break; sleep 2; done
+          curl -ksf https://localhost/api/health | grep -q '"ok":true'
+          curl -ksf -o /dev/null https://localhost/login
+          curl -ksf https://localhost/install.sh | head -1 | grep -q bash
+          curl -ksf -o /dev/null https://localhost/api/worker/bundle.tgz
+
+      - name: Create the administrator and an enrollment token
+        run: |
+          curl -ksf -c jar -H 'Origin: https://localhost' -H 'content-type: application/json' \
+            -d '{"email":"ci@example.test","password":"ci-password-123456"}' https://localhost/api/setup
+          curl -ksf -b jar -H 'Origin: https://localhost' -H 'content-type: application/json' \
+            -d '{"name":"ci-runner"}' https://localhost/api/servers > server.json
+          echo "TOKEN=$(jq -r .enrollment.token server.json)" >> "$GITHUB_ENV"
+          echo "SERVER_ID=$(jq -r .server.id server.json)" >> "$GITHUB_ENV"
+
+      - name: Install the worker on this machine with the real installer
+        run: |
+          # Caddy issues a certificate from its own local CA for "localhost"; hand that CA to the installer,
+          # the same way a private/internal PKI would be used in production.
+          docker compose -f deploy/docker-compose.yml cp caddy:/data/caddy/pki/authorities/local/root.crt caddy-root.crt
+          sudo bash deploy/install-worker.sh --url https://localhost --token "$TOKEN" --ca-cert "$PWD/caddy-root.crt" --service cron.service
+
+      - name: The worker runs under systemd as an unprivileged account and is online
+        run: |
+          systemctl is-active viscosity-worker
+          test "$(ps -o user= -p "$(systemctl show -p MainPID --value viscosity-worker)")" = viscosity
+          for i in $(seq 1 30); do
+            curl -ksf -b jar "https://localhost/api/servers/$SERVER_ID" > s.json
+            [ "$(jq -r .status s.json)" = online ] && break; sleep 2
+          done
+          jq -e '.status == "online" and .system.user == "viscosity" and .metrics.memTotal > 0' s.json
+          # managed services: the allow-listed unit can be controlled, anything else is refused
+          curl -ksf -b jar "https://localhost/api/servers/$SERVER_ID/services" | jq -e '.[0].name == "cron.service" and .[0].active == "active"'
+          curl -ksf -b jar -X POST -H 'Origin: https://localhost' "https://localhost/api/servers/$SERVER_ID/services/cron.service/restart" | jq -e .ok
+          systemctl is-active cron
+          test "$(curl -ks -o /dev/null -w '%{http_code}' -b jar -X POST -H 'Origin: https://localhost' "https://localhost/api/servers/$SERVER_ID/services/ssh.service/stop")" = 403
+          # a second use of the same enrollment token must be refused
+          ! curl -ksf -H 'content-type: application/json' -d "{\"token\":\"$TOKEN\",\"protocol\":1,\"hostname\":\"x\"}" https://localhost/api/worker/enroll
+
+      - name: Logs on failure
+        if: failure()
+        run: |
+          docker compose -f deploy/docker-compose.yml logs --tail 80 || true
+          sudo journalctl -u viscosity-worker -n 80 --no-pager || true

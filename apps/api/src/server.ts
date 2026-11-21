@@ -1,7 +1,7 @@
 import cookie from '@fastify/cookie';
 import rateLimit from '@fastify/rate-limit';
 import websocket from '@fastify/websocket';
-import { ne } from 'drizzle-orm';
+import { lt, ne } from 'drizzle-orm';
 import Fastify from 'fastify';
 import { ZodError } from 'zod';
 import { RpcError } from '@viscosity/protocol';
@@ -21,6 +21,7 @@ import { opsRoutes } from './routes/ops';
 import { projectRoutes } from './routes/projects';
 import { serverRoutes } from './routes/servers';
 import { terminalRoutes } from './routes/terminals';
+import { userRoutes } from './routes/users';
 import { workflowRoutes } from './routes/workflows';
 import { agentService } from './services/agents';
 import { browserService } from './services/browser';
@@ -69,15 +70,33 @@ export async function buildApp(config: Config) {
   const workflows = workflowService(ctx, agents, browsers);
   workflowRoutes(app, ctx, workflows);
   miscRoutes(app, ctx);
+  userRoutes(app, ctx);
 
   // Live metrics fan-out (droppable: the next sample supersedes it).
   ctx.hub.on('metrics', (serverId, m) => ctx.dash.publish(`server:${serverId}`, m, true));
+
+  // Long-range history: one persisted sample per server per interval, pruned after 14 days.
+  const lastSample = new Map<string, number>();
+  ctx.hub.on('metrics', async (serverId, m) => {
+    if (m.ts - (lastSample.get(serverId) ?? 0) < config.metricSampleMs) return;
+    lastSample.set(serverId, m.ts);
+    await db.insert(schema.metricSamples).values({
+      serverId, ts: new Date(m.ts), cpu: m.cpu, memUsed: m.memTotal - m.memAvailable, memTotal: m.memTotal,
+      diskUsed: m.diskUsed, diskTotal: m.diskTotal, netRxBps: m.netRxBps, netTxBps: m.netTxBps,
+    }).onConflictDoNothing();
+  });
+  const prune = setInterval(() => {
+    void db.delete(schema.metricSamples).where(lt(schema.metricSamples.ts, new Date(Date.now() - 14 * 86_400_000)))
+      .catch((err) => app.log.error({ err }, 'metric pruning failed'));
+  }, 3_600_000);
+  prune.unref();
 
   app.get('/ws/events', { websocket: true }, (socket) => ctx.dash.add(socket));
 
   app.addHook('onReady', async () => workflows.start());
   app.addHook('onClose', async () => {
     ctx.closing = true;
+    clearInterval(prune);
     workflows.stop();
     ctx.hub.closeAll();
     ctx.dash.closeAll();

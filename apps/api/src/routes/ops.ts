@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { eq } from 'drizzle-orm';
+import { and, asc, eq, gt, sql } from 'drizzle-orm';
 import { Readable } from 'node:stream';
 import path from 'node:path';
 import { z } from 'zod';
@@ -40,6 +40,34 @@ export function opsRoutes(app: FastifyInstance, ctx: Ctx) {
     if (confirm !== s.name) throw new HttpError(400, 'type the server name to confirm the reboot');
     await audit(ctx, req, 'server.reboot', s.name, { serverId: id });
     await hub.call(id, 'system.reboot', {});
+    return { ok: true };
+  });
+
+  // ── metrics history (persisted samples, bucketed so a chart never gets more than ~200 points) ──
+  app.get('/api/servers/:id/metrics', async (req) => {
+    const id = sid(req);
+    const { range } = z.object({ range: z.enum(['1h', '24h', '7d']).default('1h') }).parse(req.query);
+    const hours = { '1h': 1, '24h': 24, '7d': 168 }[range];
+    const bucket = Math.max(60, Math.round((hours * 3600) / 180)); // seconds per point
+    const M = schema.metricSamples;
+    // `bucket` is a number computed above; it is inlined so SELECT and GROUP BY are the same expression to Postgres.
+    const b = sql.raw(String(bucket));
+    const t = sql<string>`to_timestamp(floor(extract(epoch from ${M.ts}) / ${b}) * ${b})`;
+    const rows = await db.select({
+      ts: t, cpu: sql<number>`avg(${M.cpu})`, memUsed: sql<number>`avg(${M.memUsed})`, memTotal: sql<number>`max(${M.memTotal})`,
+      diskUsed: sql<number>`max(${M.diskUsed})`, diskTotal: sql<number>`max(${M.diskTotal})`,
+      netRxBps: sql<number>`avg(${M.netRxBps})`, netTxBps: sql<number>`avg(${M.netTxBps})`,
+    }).from(M).where(and(eq(M.serverId, id), gt(M.ts, new Date(Date.now() - hours * 3_600_000)))).groupBy(t).orderBy(asc(t));
+    return rows.map((r) => ({ ...r, ts: new Date(r.ts).getTime() }));
+  });
+
+  // ── managed systemd services (only units allow-listed in the worker's own config) ──
+  app.get('/api/servers/:id/services', (req) => hub.call(sid(req), 'service.list', {}));
+  app.post('/api/servers/:id/services/:name/:action', async (req) => {
+    const id = sid(req);
+    const p = z.object({ name: z.string().regex(/^[\w@.:-]+$/), action: z.enum(['start', 'stop', 'restart']) }).parse(req.params);
+    await hub.call(id, 'service.action', p, 90_000);
+    await audit(ctx, req, `service.${p.action}`, p.name, { serverId: id });
     return { ok: true };
   });
 

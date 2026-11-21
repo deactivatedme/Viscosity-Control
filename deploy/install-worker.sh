@@ -6,10 +6,12 @@
 #   --with-browser    install Playwright Chromium for browser sessions
 #   --with-docker     add the worker account to the docker group (NOTE: docker access is root-equivalent)
 #   --allow-reboot    let the dashboard reboot this machine
+#   --service <unit>  let the dashboard start/stop/restart this systemd unit (repeatable), e.g. nginx.service
+#   --ca-cert <file>  trust this CA certificate for the control plane (private / internal PKI)
 #   --insecure        allow a plain http:// control URL (testing only)
 set -euo pipefail
 
-URL="" TOKEN="" ROOTS=() WITH_BROWSER=0 WITH_DOCKER=0 ALLOW_REBOOT=0 INSECURE=""
+URL="" TOKEN="" ROOTS=() WITH_BROWSER=0 WITH_DOCKER=0 ALLOW_REBOOT=0 INSECURE="" CA_CERT="" SERVICES=()
 while [ $# -gt 0 ]; do
   case "$1" in
     --url) URL="${2%/}"; shift 2 ;;
@@ -18,6 +20,8 @@ while [ $# -gt 0 ]; do
     --with-browser) WITH_BROWSER=1; shift ;;
     --with-docker) WITH_DOCKER=1; shift ;;
     --allow-reboot) ALLOW_REBOOT=1; shift ;;
+    --ca-cert) CA_CERT="$2"; shift 2 ;;
+    --service) SERVICES+=("$2"); shift 2 ;;
     --insecure) INSECURE="--insecure"; shift ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
@@ -47,8 +51,16 @@ id "$SVC_USER" >/dev/null 2>&1 || useradd --system --create-home --home-dir "$VA
 install -d -o "$SVC_USER" -g "$SVC_USER" -m 0750 "$APP" "$ETC" "$VAR" "$VAR/data" "${ROOTS[@]}"
 [ "$WITH_DOCKER" -eq 1 ] && getent group docker >/dev/null && usermod -aG docker "$SVC_USER"
 
+# Optional private CA: used for the download, the enrollment call and the running service.
+CURL_CA=() NODE_CA=()
+if [ -n "$CA_CERT" ]; then
+  install -o "$SVC_USER" -g "$SVC_USER" -m 0644 "$CA_CERT" "$ETC/ca.crt"
+  CURL_CA=(--cacert "$ETC/ca.crt")
+  NODE_CA=("NODE_EXTRA_CA_CERTS=$ETC/ca.crt")
+fi
+
 echo "==> Downloading the worker from $URL"
-curl -fsSL "$URL/api/worker/bundle.tgz" | tar -xz -C "$APP" --strip-components=1
+curl -fsSL "${CURL_CA[@]}" "$URL/api/worker/bundle.tgz" | tar -xz -C "$APP" --strip-components=1
 chown -R "$SVC_USER:$SVC_USER" "$APP"
 ( cd "$APP" && sudo -u "$SVC_USER" -H npm install --omit=dev --no-audit --no-fund --loglevel=error )
 if [ "$WITH_BROWSER" -eq 1 ]; then
@@ -58,7 +70,7 @@ fi
 
 echo "==> Enrolling with the control plane"
 ROOT_ARGS=(); for r in "${ROOTS[@]}"; do ROOT_ARGS+=(--root "$r"); done
-sudo -u "$SVC_USER" -H node "$APP/worker.mjs" enroll --url "$URL" --token "$TOKEN" \
+sudo -u "$SVC_USER" -H env "${NODE_CA[@]}" node "$APP/worker.mjs" enroll --url "$URL" --token "$TOKEN" \
   --config "$ETC/worker.json" --data-dir "$VAR/data" "${ROOT_ARGS[@]}" $INSECURE
 
 if [ "$ALLOW_REBOOT" -eq 1 ]; then
@@ -66,6 +78,19 @@ if [ "$ALLOW_REBOOT" -eq 1 ]; then
   cat > /etc/polkit-1/rules.d/50-viscosity-reboot.rules <<POLKIT
 polkit.addRule(function(action, subject) {
   if (subject.user == "$SVC_USER" && action.id.indexOf("org.freedesktop.login1.reboot") == 0) return polkit.Result.YES;
+});
+POLKIT
+fi
+
+if [ ${#SERVICES[@]} -gt 0 ]; then
+  # The allow-list lives in the worker's own config; polkit grants exactly those units and nothing else.
+  sudo -u "$SVC_USER" node -e 'const [f,...u]=process.argv.slice(1),fs=require("fs");const c=JSON.parse(fs.readFileSync(f));c.services=u;fs.writeFileSync(f,JSON.stringify(c,null,2),{mode:0o600})' "$ETC/worker.json" "${SERVICES[@]}"
+  UNITS_JS=$(printf '"%s",' "${SERVICES[@]}")
+  cat > /etc/polkit-1/rules.d/50-viscosity-services.rules <<POLKIT
+polkit.addRule(function(action, subject) {
+  var units = [${UNITS_JS%,}];
+  if (subject.user == "$SVC_USER" && action.id == "org.freedesktop.systemd1.manage-units" &&
+      units.indexOf(action.lookup("unit")) >= 0 && ["start", "stop", "restart"].indexOf(action.lookup("verb")) >= 0) return polkit.Result.YES;
 });
 POLKIT
 fi
@@ -82,6 +107,7 @@ User=$SVC_USER
 Group=$SVC_USER
 WorkingDirectory=$VAR
 ExecStart=/usr/bin/env node $APP/worker.mjs run --config $ETC/worker.json
+${NODE_CA:+Environment=${NODE_CA[0]}}
 Restart=always
 RestartSec=3
 # Agents and terminals are children of this service: keep them confined.

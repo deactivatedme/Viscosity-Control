@@ -57,6 +57,8 @@ Installer options (append after the token):
 | `--with-browser` | Installs Playwright Chromium so the server can run browser sessions. |
 | `--with-docker` | Adds the worker account to the `docker` group. **Docker access is root-equivalent** — see the threat model. |
 | `--allow-reboot` | Lets admins reboot the machine from the dashboard (adds a polkit rule). |
+| `--service <unit>` | Lets operators start/stop/restart that systemd unit from the dashboard (repeatable; adds a narrowly scoped polkit rule). |
+| `--ca-cert <file>` | Trust a private CA for the control plane (internal PKI, Caddy's local CA, …). |
 
 What it does: installs Node.js 22 and build tools if needed, creates the unprivileged `viscosity` account, downloads the worker bundle from your control plane into `/opt/viscosity-worker`, enrolls (writing `/etc/viscosity/worker.json`, mode 0600) and starts the hardened `viscosity-worker` systemd unit. The dashboard's enrollment dialog flips to *Connected* when the worker's first heartbeat arrives.
 

@@ -4,13 +4,14 @@ import { useState } from 'react';
 import { Card } from '@/components/settings/card';
 import { CredentialsCard } from '@/components/settings/credentials';
 import { MfaCard, PasswordCard } from '@/components/settings/security';
+import { UsersCard } from '@/components/settings/users';
 import { Segmented, SkeletonRows, View } from '@/components/ui/bits';
 import { Field, Input, Select } from '@/components/ui/input';
 import { api } from '@/lib/api';
 import { useMe } from '@/lib/queries';
 import { useUi } from '@/lib/store';
 
-type Tab = 'account' | 'providers' | 'terminal' | 'about';
+type Tab = 'account' | 'providers' | 'terminal' | 'about' | 'users';
 const FONTS = ['Geist Mono', 'ui-monospace', 'Menlo', 'Consolas', 'Courier New'];
 
 function Kv({ k, children }: { k: string; children: React.ReactNode }) {
@@ -59,7 +60,7 @@ export default function Settings() {
   const admin = me?.role === 'admin';
   const options: { value: Tab; label: string }[] = [
     { value: 'account', label: 'Account' },
-    ...(admin ? [{ value: 'providers' as const, label: 'AI providers' }] : []),
+    ...(admin ? [{ value: 'providers' as const, label: 'AI providers & secrets' }, { value: 'users' as const, label: 'Users' }] : []),
     { value: 'terminal', label: 'Terminal' },
     { value: 'about', label: 'About' },
   ];
@@ -80,6 +81,7 @@ export default function Settings() {
             </>
           )}
           {tab === 'providers' && admin && <CredentialsCard />}
+          {tab === 'users' && admin && <UsersCard />}
           {tab === 'terminal' && <TerminalCard />}
           {tab === 'about' && <AboutCard />}
         </div>

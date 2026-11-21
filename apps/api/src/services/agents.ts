@@ -9,6 +9,12 @@ type Row = typeof A.$inferSelect;
 export interface AgentInput {
   serverId: string; name?: string; provider: Row['provider']; model?: string; cwd: string; permissionMode: Row['permissionMode'];
   worktreeBranch?: string; credentialId?: string; command?: string[]; prompt: string;
+  /** Extra child-process environment for this one launch (e.g. deployment secrets). Never persisted. */
+  env?: Record<string, string>;
+  /** Pre-chosen session id: makes creation idempotent for callers that must not start a step twice (workflow engine). */
+  id?: string;
+  /** Per-launch time limit handed to the worker. Never persisted. */
+  timeoutMs?: number;
 }
 const CRED_ENV: Record<string, string | undefined> = { anthropic: 'ANTHROPIC_API_KEY', openai: 'OPENAI_API_KEY', github: 'GITHUB_TOKEN' };
 
@@ -22,8 +28,8 @@ export function agentService(ctx: Ctx) {
   }
 
   /** Ask the worker to run `prompt` in this session. The worker's status events drive the row from here. */
-  async function launch(row: Row, prompt: string, resume: string | null) {
-    const env: Record<string, string> = {};
+  async function launch(row: Row, prompt: string, resume: string | null, extraEnv?: Record<string, string>, timeoutMs?: number) {
+    const env: Record<string, string> = { ...extraEnv };
     if (row.credentialId) {
       const [cred] = await db.select().from(schema.credentials).where(eq(schema.credentials.id, row.credentialId));
       const name = cred && CRED_ENV[cred.kind];
@@ -36,7 +42,7 @@ export function agentService(ctx: Ctx) {
         model: row.model ?? undefined, permissionMode: row.permissionMode,
         // once the worktree exists the session simply runs inside it
         worktreeBranch: row.worktreePath ? undefined : (row.worktreeBranch ?? undefined),
-        resume: resume ?? undefined, env, command: row.command ?? undefined,
+        resume: resume ?? undefined, env, command: row.command ?? undefined, timeoutMs,
       });
     } catch (err) {
       if (isOffline(err) && row.status === 'queued') {
@@ -110,13 +116,13 @@ export function agentService(ctx: Ctx) {
     const [server] = await db.select().from(schema.servers).where(eq(schema.servers.id, input.serverId));
     if (!server) throw new HttpError(404, 'server not found');
     const [row] = await db.insert(A).values({
-      serverId: input.serverId, name: input.name || input.prompt.slice(0, 60), provider: input.provider, model: input.model || null,
+      id: input.id, serverId: input.serverId, name: input.name || input.prompt.slice(0, 60), provider: input.provider, model: input.model || null,
       cwd: input.cwd, permissionMode: input.permissionMode, worktreeBranch: input.worktreeBranch ?? null, command: input.command ?? null,
       credentialId: input.credentialId ?? null, task: input.prompt, createdBy: userId,
     }).returning();
     await audit(ctx, null, 'agent.create', row!.name, { serverId: input.serverId, detail: { provider: input.provider, cwd: input.cwd, permissionMode: input.permissionMode, source }, userId });
     dash.publish('agents', { id: row!.id, status: 'queued' });
-    await launch(row!, input.prompt, null);
+    await launch(row!, input.prompt, null, input.env, input.timeoutMs);
     return get(row!.id);
   }
 

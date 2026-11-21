@@ -19,6 +19,8 @@ const Env = z.object({
   /** Set when running behind Caddy/Traefik so client IPs come from X-Forwarded-For. */
   TRUST_PROXY: z.enum(['true', 'false']).default('false'),
   LOG_LEVEL: z.string().default('info'),
+  /** How often a metrics sample is persisted for history charts. */
+  METRIC_SAMPLE_MS: z.coerce.number().int().min(1000).default(60_000),
 });
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env) {
@@ -39,6 +41,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env) {
     migrationsDir: e.MIGRATIONS_DIR,
     trustProxy: e.TRUST_PROXY === 'true',
     logLevel: e.LOG_LEVEL,
+    metricSampleMs: e.METRIC_SAMPLE_MS,
   };
 }
 export type Config = ReturnType<typeof loadConfig>;

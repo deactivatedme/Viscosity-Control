@@ -11,6 +11,9 @@ type Row = typeof B.$inferSelect;
 
 export interface BrowserInput {
   serverId: string; name?: string; mode: Row['mode']; startUrl?: string; task?: string; steps?: unknown[]; credentialId?: string; model?: string;
+  /** Pre-chosen session id (idempotent creation for the workflow engine) and a per-launch time limit. Neither is persisted beyond the row id. */
+  id?: string;
+  timeoutMs?: number;
 }
 
 export function browserService(ctx: Ctx) {
@@ -24,7 +27,7 @@ export function browserService(ctx: Ctx) {
     return row;
   }
 
-  async function launch(row: Row) {
+  async function launch(row: Row, timeoutMs?: number) {
     let llm: { apiKey: string; model: string } | undefined;
     if (row.mode === 'agent') {
       const [cred] = row.credentialId ? await db.select().from(schema.credentials).where(eq(schema.credentials.id, row.credentialId)) : [];
@@ -43,7 +46,7 @@ export function browserService(ctx: Ctx) {
       }));
       await hub.call(row.serverId, 'browser.start', {
         sessionId: row.id, mode: row.mode, startUrl: row.startUrl ?? undefined, task: row.task ?? undefined,
-        steps: steps.length ? (steps as never) : undefined, llm,
+        steps: steps.length ? (steps as never) : undefined, llm, timeoutMs,
       });
     } catch (err) {
       if (isOffline(err)) {
@@ -115,13 +118,13 @@ export function browserService(ctx: Ctx) {
     const [server] = await db.select().from(schema.servers).where(eq(schema.servers.id, input.serverId));
     if (!server) throw new HttpError(404, 'server not found');
     const [row] = await db.insert(B).values({
-      serverId: input.serverId, name: input.name || input.task?.slice(0, 60) || input.startUrl || 'Browser session', mode: input.mode,
+      id: input.id, serverId: input.serverId, name: input.name || input.task?.slice(0, 60) || input.startUrl || 'Browser session', mode: input.mode,
       task: input.task ?? null, startUrl: input.startUrl ?? null, steps: input.steps ?? null, credentialId: input.credentialId ?? null,
       model: input.model || null, createdBy: userId,
     }).returning();
     await audit(ctx, null, 'browser.create', row!.name, { serverId: input.serverId, detail: { mode: input.mode, startUrl: input.startUrl, source }, userId });
     dash.publish('browsers', { id: row!.id, status: 'queued' });
-    await launch(row!);
+    await launch(row!, input.timeoutMs);
     return get(row!.id);
   }
 

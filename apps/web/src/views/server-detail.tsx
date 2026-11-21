@@ -1,9 +1,9 @@
 'use client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { FolderTree, Power, RefreshCw, Skull, SquareTerminal } from 'lucide-react';
+import { Cog, FolderTree, Power, RefreshCw, Skull, SquareTerminal } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import type { ProcessInfo } from '@viscosity/protocol';
+import type { ProcessInfo, ServiceUnit } from '@viscosity/protocol';
 import { Badge, EmptyState, ErrorState, Meter, Segmented, SkeletonRows, Sparkline, Status, Td, Th, View } from '@/components/ui/bits';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/dialog';
@@ -96,16 +96,67 @@ function Logs({ serverId, online }: { serverId: string; online: boolean }) {
   );
 }
 
+interface Sample { ts: number; cpu: number; memUsed: number; memTotal: number; netRxBps: number; netTxBps: number }
+
+function Services({ serverId, online, canControl }: { serverId: string; online: boolean; canControl: boolean }) {
+  const [target, setTarget] = useState<{ unit: ServiceUnit; action: 'start' | 'stop' | 'restart' } | null>(null);
+  const q = useQuery({ queryKey: ['services', serverId], enabled: online, refetchInterval: 10_000, queryFn: () => api<ServiceUnit[]>(`/api/servers/${serverId}/services`) });
+  if (!online) return <EmptyState icon={Power} title="Server offline">Services can only be managed while the worker is connected.</EmptyState>;
+  if (q.isPending) return <SkeletonRows />;
+  if (q.error) return <ErrorState error={q.error} onRetry={() => q.refetch()} />;
+  if (q.data.length === 0) return (
+    <EmptyState icon={Cog} title="No managed services">
+      Which systemd units the dashboard may control is decided on the server, not here. Add them to the worker config, e.g. <span className="font-mono text-fg-2">&quot;services&quot;: [&quot;nginx.service&quot;]</span> in <span className="font-mono text-fg-2">/etc/viscosity/worker.json</span>, then restart the worker.
+    </EmptyState>
+  );
+  return (
+    <>
+      <table className="w-full border-collapse">
+        <thead><tr><Th>Unit</Th><Th>State</Th><Th className="hidden @xl:table-cell">Description</Th><Th /></tr></thead>
+        <tbody>
+          {q.data.map((u) => (
+            <tr key={u.name} className="transition-colors hover:bg-raised">
+              <Td className="font-mono text-xs">{u.name}</Td>
+              <Td><Status status={u.active === 'active' ? 'running' : u.active === 'failed' ? 'failed' : 'stopped'} /><div className="font-mono text-xs text-fg-3">{u.active} · {u.sub}</div></Td>
+              <Td className="hidden text-sm text-fg-2 @xl:table-cell">{u.description}</Td>
+              <Td className="text-right">
+                {canControl ? (
+                  <div className="flex justify-end gap-1">
+                    {u.active === 'active'
+                      ? <><Button size="sm" onClick={() => setTarget({ unit: u, action: 'restart' })}>Restart</Button><Button size="sm" variant="ghost" onClick={() => setTarget({ unit: u, action: 'stop' })}>Stop</Button></>
+                      : <Button size="sm" onClick={() => setTarget({ unit: u, action: 'start' })}>Start</Button>}
+                  </div>
+                ) : null}
+              </Td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <ConfirmDialog open={!!target} onOpenChange={() => setTarget(null)} title={`${target?.action} ${target?.unit.name}?`} confirmLabel={target?.action ?? 'Confirm'}
+        description="This runs systemctl on the server. The real result is shown; nothing is assumed."
+        onConfirm={async () => {
+          await api(`/api/servers/${serverId}/services/${encodeURIComponent(target!.unit.name)}/${target!.action}`, { method: 'POST' });
+          toast(`${target!.unit.name}: ${target!.action} done`);
+          await q.refetch();
+        }} />
+    </>
+  );
+}
+
 export default function ServerDetailView({ id }: { id?: string }) {
   const qc = useQueryClient();
   const me = useMe().data;
-  const [tab, setTab] = useState<'processes' | 'logs' | 'connections'>('processes');
+  const [tab, setTab] = useState<'processes' | 'services' | 'logs' | 'connections'>('processes');
+  const [range, setRange] = useState<'live' | '1h' | '24h' | '7d'>('live');
   const [reboot, setReboot] = useState(false);
   const q = useQuery({ queryKey: ['server', id], enabled: !!id, queryFn: () => api<ServerDetail>(`/api/servers/${id}`) });
   useTopic<{ id?: string }>('servers', (e) => { if (!e.id || e.id === id) void qc.invalidateQueries({ queryKey: ['server', id] }); });
   const server = q.data;
   const online = server?.status === 'online';
   const { history, latest } = useMetrics(id ?? null, !!online, server?.history);
+  // Persisted history for ranges beyond the live window (one sample a minute, bucketed by the API).
+  const past = useQuery({ queryKey: ['metrics-history', id, range], enabled: !!id && range !== 'live', refetchInterval: 60_000, queryFn: () => api<Sample[]>(`/api/servers/${id}/metrics?range=${range}`) });
+  const series: Sample[] = range === 'live' ? history.map((m) => ({ ts: m.ts, cpu: m.cpu, memUsed: m.memTotal - m.memAvailable, memTotal: m.memTotal, netRxBps: m.netRxBps, netTxBps: m.netTxBps })) : (past.data ?? []);
   useEffect(() => { if (id) useUi.getState().select({ kind: 'server', id }); }, [id]);
   useEffect(() => { if (server && id) renameTab({ kind: 'server', id }, server.name); }, [server?.name, id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -132,19 +183,26 @@ export default function ServerDetailView({ id }: { id?: string }) {
           </div>
         )}
         {latest ? (
-          <div className="grid shrink-0 grid-cols-2 gap-3 border-b p-4 @5xl:grid-cols-4">
-            <MetricCard label="CPU" value={pct(latest.cpu)} sub={`load ${latest.load.map((l) => l.toFixed(2)).join(' ')}`} values={history.map((m) => m.cpu)} max={100} />
-            <MetricCard label="Memory" value={pct((1 - latest.memAvailable / latest.memTotal) * 100)} sub={`${bytes(latest.memTotal - latest.memAvailable)} of ${bytes(latest.memTotal)}`} values={history.map((m) => m.memTotal - m.memAvailable)} max={latest.memTotal} />
-            <MetricCard label="Disk /" value={pct((latest.diskUsed / latest.diskTotal) * 100)} sub={`${bytes(latest.diskUsed)} of ${bytes(latest.diskTotal)}`} meter={(latest.diskUsed / latest.diskTotal) * 100} />
-            <MetricCard label="Network" value={`↓ ${bytes(latest.netRxBps)}/s`} sub={`↑ ${bytes(latest.netTxBps)}/s · up ${duration(latest.uptime)}`} values={history.map((m) => m.netRxBps + m.netTxBps)} />
+          <>
+          <div className="flex shrink-0 items-center justify-between gap-3 px-4 pt-3">
+            <span className="text-xs uppercase tracking-[0.14em] text-fg-3">Charts</span>
+            <Segmented value={range} onChange={setRange} options={[{ value: 'live', label: 'Live' }, { value: '1h', label: '1h' }, { value: '24h', label: '24h' }, { value: '7d', label: '7d' }]} />
           </div>
+          <div className="grid shrink-0 grid-cols-2 gap-3 border-b p-4 pt-3 @5xl:grid-cols-4">
+            <MetricCard label="CPU" value={pct(latest.cpu)} sub={`load ${latest.load.map((l) => l.toFixed(2)).join(' ')}`} values={series.map((m) => m.cpu)} max={100} />
+            <MetricCard label="Memory" value={pct((1 - latest.memAvailable / latest.memTotal) * 100)} sub={`${bytes(latest.memTotal - latest.memAvailable)} of ${bytes(latest.memTotal)}`} values={series.map((m) => m.memUsed)} max={latest.memTotal} />
+            <MetricCard label="Disk /" value={pct((latest.diskUsed / latest.diskTotal) * 100)} sub={`${bytes(latest.diskUsed)} of ${bytes(latest.diskTotal)}`} meter={(latest.diskUsed / latest.diskTotal) * 100} />
+            <MetricCard label="Network" value={`↓ ${bytes(latest.netRxBps)}/s`} sub={`↑ ${bytes(latest.netTxBps)}/s · up ${duration(latest.uptime)}`} values={series.map((m) => m.netRxBps + m.netTxBps)} />
+          </div>
+          </>
         ) : online ? <div className="border-b p-4"><SkeletonRows rows={2} /></div> : null}
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-3 py-2">
-          <Segmented value={tab} onChange={setTab} options={[{ value: 'processes', label: 'Processes' }, { value: 'logs', label: 'System logs' }, { value: 'connections', label: 'Connections' }]} />
+          <Segmented value={tab} onChange={setTab} options={[{ value: 'processes', label: 'Processes' }, { value: 'services', label: 'Services' }, { value: 'logs', label: 'System logs' }, { value: 'connections', label: 'Connections' }]} />
           <div className="flex flex-wrap gap-1">{caps.map((c) => <Badge key={c}>{c}</Badge>)}</div>
         </div>
         <div className="min-h-0 flex-1 overflow-auto">
           {tab === 'processes' ? <Processes serverId={server.id} online={!!online} canKill={me?.role !== 'viewer'} />
+            : tab === 'services' ? <Services serverId={server.id} online={!!online} canControl={me?.role !== 'viewer'} />
             : tab === 'logs' ? <Logs serverId={server.id} online={!!online} />
             : server.connections.length === 0 ? <EmptyState icon={Power} title="No connections yet">The worker has never connected.</EmptyState> : (
               <table className="w-full border-collapse">
