@@ -7,7 +7,9 @@ let cached: { at: number; ok: boolean } | null = null;
 /** Whether the docker CLI can reach a daemon (cached 15s — metrics ask every tick). */
 export async function dockerAvailable(): Promise<boolean> {
   if (!cached || Date.now() - cached.at > 15_000) {
-    cached = { at: Date.now(), ok: await probe('docker', ['info', '--format', '{{.ServerVersion}}']) };
+    // `docker ps` fails when the daemon is unreachable *or* this account may not use the socket
+    // (`docker info` can still exit 0 in that case).
+    cached = { at: Date.now(), ok: await probe('docker', ['ps', '-q']) };
   }
   return cached.ok;
 }
@@ -49,7 +51,8 @@ export function parseContainer(row: Record<string, string>): Container {
 
 export async function runningContainers(): Promise<number | null> {
   if (!(await dockerAvailable())) return null;
-  return (await exec('docker', ['ps', '-q'])).stdout.split('\n').filter(Boolean).length;
+  // A metrics sample must never fail because of Docker: report "unavailable" instead.
+  return exec('docker', ['ps', '-q']).then((r) => r.stdout.split('\n').filter(Boolean).length, () => null);
 }
 
 export const dockerHandlers: Pick<Handlers, 'docker.list' | 'docker.inspect' | 'docker.logs' | 'docker.action' | 'docker.stats'> = {
