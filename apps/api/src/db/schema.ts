@@ -93,6 +93,8 @@ export const agentSessions = pgTable('agent_sessions', {
   worktreeBranch: text('worktree_branch'),
   worktreePath: text('worktree_path'),
   command: jsonb('command').$type<string[]>(),
+  /** false = a plain command run (build, deploy): `command` is executed exactly, without the prompt appended. */
+  appendPrompt: boolean('append_prompt').notNull().default(true),
   credentialId: uuid('credential_id').references(() => credentials.id, { onDelete: 'set null' }),
   /** The prompt of the current/last run (also what a queued session will start with). */
   task: text('task').notNull(),

@@ -205,8 +205,10 @@ export const AgentStartParams = z.object({
   resume: z.string().optional(),
   /** Provider credentials; held in worker memory only for the lifetime of the run. */
   env: z.record(z.string(), z.string()).default({}),
-  /** argv for provider=custom (no shell). The prompt is appended as the final argument. */
+  /** argv for provider=custom (no shell). The prompt is appended as the final argument unless `appendPrompt` is false. */
   command: z.array(z.string()).optional(),
+  /** provider=custom: false runs `command` exactly as given — used for plain command runs (builds, deploys). */
+  appendPrompt: z.boolean().default(true),
   timeoutMs: z.number().int().positive().max(24 * 3600_000).default(2 * 3600_000),
 });
 export type AgentStartParams = z.infer<typeof AgentStartParams>;

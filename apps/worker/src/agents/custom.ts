@@ -2,10 +2,10 @@ import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { clip, type Adapter } from './types';
 
-/** Runs an arbitrary agent CLI: argv from the dashboard + the prompt as the last argument, no shell. */
+/** Runs an arbitrary agent CLI (argv + the prompt as the last argument) or, with appendPrompt=false, a plain command. No shell. */
 export const runCustom: Adapter = async (ctx) => {
   const [file, ...args] = ctx.params.command!;
-  const child = spawn(file!, [...args, ctx.params.prompt], {
+  const child = spawn(file!, ctx.params.appendPrompt ? [...args, ctx.params.prompt] : args, {
     cwd: ctx.cwd,
     env: ctx.env,
     stdio: ['ignore', 'pipe', 'pipe'],
